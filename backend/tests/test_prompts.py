@@ -87,3 +87,33 @@ def test_country_lyrics_refine_adjacent_audio_genre_to_country_americana():
     prompt = build_image_prompt(signal, "blend", creative_seed="country-song:set:1")
     assert "Americana record photography" in prompt
     assert any(term in prompt for term in ["pickup", "county road", "roadside bar", "motel", "diner", "field"])
+
+
+def test_genre_alone_cannot_inject_transport_or_architecture():
+    signal = _signal()
+    signal["keywords"] = ["money", "shadow", "truth", "pressure"]
+    signal["imagery"] = ["shadow"]
+    signal["themes"] = ["success and ambition", "identity and reflection"]
+    prompt = build_image_prompt(signal, "blend", creative_seed="no-stock-props:set:1")
+    assert "Transportation imagery: FORBIDDEN" in prompt
+    assert "Architecture-led imagery: FORBIDDEN" in prompt
+    assert "genre alone must not determine the setting or props" in prompt
+
+
+def test_vehicle_is_only_permitted_when_lyrics_explicitly_name_it():
+    signal = _signal()
+    signal["keywords"] = ["truck", "home", "whiskey", "memory"]
+    signal["imagery"] = ["truck"]
+    prompt = build_image_prompt(signal, "lyrics", creative_seed="literal-truck:set:1")
+    assert "Vehicle permission: ALLOWED" in prompt
+    assert "explicitly present in the lyrical signal" in prompt
+
+
+def test_variation_archetypes_do_not_force_architecture_or_vehicle_heroes():
+    signal = _signal()
+    signal["keywords"] = ["truth", "shadow", "pressure"]
+    signal["imagery"] = ["shadow"]
+    base = build_image_prompt(signal, "blend", creative_seed="archetype-clean:set:1")
+    prompts = [variation_prompt(base, i) for i in range(1, 6)]
+    assert all("ARCHITECTURE-AS-CHARACTER" not in p for p in prompts)
+    assert all("vehicle motion" not in p for p in prompts)

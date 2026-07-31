@@ -4,15 +4,15 @@ from typing import Any
 
 
 _AUDIO_VISUAL_THEMES = {
-    "ambient": ["lonely architecture", "open landscape", "atmospheric distance"],
-    "hip-hop / trap": ["city after dark", "street-level confidence", "cars and concrete"],
-    "R&B / soul": ["late-night intimacy", "editorial portraiture", "warm city glow"],
-    "electronic / dance": ["warehouse nightlife", "night highway motion", "practical neon"],
-    "rock / alternative": ["garage realism", "road-worn texture", "live-wire attitude"],
-    "country / americana": ["roadside America", "small-town character", "guitars trucks and open road"],
-    "acoustic / singer-songwriter": ["human-scale intimacy", "roadside storytelling", "natural materials"],
-    "pop": ["fashion-editorial confidence", "iconic location", "clean visual hook"],
-    "cinematic / experimental": ["film-still narrative", "dramatic location", "unexpected real-world detail"],
+    "ambient": ["atmospheric distance", "natural scale", "quiet texture"],
+    "hip-hop / trap": ["street-level confidence", "bold silhouette", "tactile swagger"],
+    "R&B / soul": ["late-night intimacy", "editorial portraiture", "sensual negative space"],
+    "electronic / dance": ["kinetic movement", "practical colored light", "reflective texture"],
+    "rock / alternative": ["documentary grit", "physical texture", "live-wire attitude"],
+    "country / americana": ["roots storytelling", "weathered texture", "open-air character"],
+    "acoustic / singer-songwriter": ["human-scale intimacy", "personal storytelling", "natural materials"],
+    "pop": ["fashion-editorial confidence", "bold color relationship", "clean visual hook"],
+    "cinematic / experimental": ["film-still narrative", "practical visual concept", "unexpected physical detail"],
 }
 
 _COUNTRY_WORDS = {

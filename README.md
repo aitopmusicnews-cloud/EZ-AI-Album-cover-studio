@@ -271,9 +271,9 @@ The browser presents both choices. The selected path creates a normal append-onl
 
 ## Album-cover art direction
 
-The image prompt builder is intentionally biased toward **commercial music-cover photography and art direction**, not generic AI surrealism. Audio establishes pace, energy, tonality, and a broad genre family; lyric keywords supply concrete scene clues such as roads, cars, bars, city streets, weather, interiors, and other narrative details. When lyrics strongly indicate Americana/country or urban/rap imagery, the combined signal can refine an adjacent audio-only genre estimate so the cover world better matches the song.
+The image prompt builder is intentionally biased toward **commercial music-cover photography and art direction**, not generic AI surrealism. Audio establishes pace, energy, tonality, and a broad genre family, but genre no longer injects stock locations or props. Lyric keywords and themes supply the concrete story clues. Transportation imagery and architecture-led compositions are blocked unless the lyrical signal explicitly earns them, so hip-hop does not automatically become a car/parking-garage cover and country does not automatically become a truck/roadside-building cover.
 
-Each 3–5 image set uses a different cover archetype: cinematic hero portrait, narrative location, classic physical record sleeve, modern mixtape/poster, and an alternate story concept. The prompt explicitly rejects recurring cracked-statue, shattered-face, floating-fragment, and cyber-mask defaults unless those ideas are actually supported by the song.
+Each 3–5 image set rotates among lyric-symbol, documentary, tactile still-life, wide emotional scene, character/fashion, after-the-event, unexpected-viewpoint, minimal physical, energetic-human, intimate-detail, and practical-concept directions. The prompt explicitly rejects recurring cracked-statue, shattered-face, floating-fragment, cyber-mask, transportation, and architecture defaults unless those ideas are actually supported by the song.
 
 The image model is still told **not to generate lettering**. The exact release title, artist name, and optional Parental Advisory label are rendered locally with Pillow after generation. The five variation positions use different typography layouts so the set reads more like professionally art-directed cover options rather than the same label pasted on every image.
 
@@ -292,9 +292,9 @@ Stored images are downloaded immediately from the provider if a temporary URL is
 
 ## Song-specific visual DNA and anti-repetition
 
-The image prompt is not a fixed five-template sequence. Each immutable input version contributes its input hash to a **visual DNA** seed. The seed deterministically rotates the subject strategy, genre-appropriate setting, camera viewpoint, time/weather, image-making treatment, and layout. A fresh regeneration mixes in the next variation-set number, so regenerating the same song deliberately creates a new art-direction rotation while preserving the prior set.
+The image prompt is not a fixed five-template sequence. Each immutable input version contributes its input hash to a **visual DNA** seed. The seed deterministically rotates subject strategy, song-derived scene premise, camera viewpoint, time/weather, image-making treatment, and layout. A fresh regeneration mixes in the next variation-set number, so regenerating the same song deliberately creates a new art-direction rotation while preserving the prior set.
 
-The prompt also includes audio-to-visual cues derived from spectral balance and dynamics without exposing raw technical measurements to the image model. Lyrics contribute only a small number of concrete story clues. Human subjects are optional: some visual-DNA combinations explicitly require environment-first, object-led, architectural, distant-silhouette, hands/detail, or documentary compositions to prevent every song from collapsing into the same centered portrait.
+The prompt also includes audio-to-visual cues derived from spectral balance and dynamics without exposing raw technical measurements to the image model. Lyrics contribute only a small number of concrete story clues. Human subjects are optional: visual-DNA combinations can use lyric symbols, tactile still-lifes, natural settings, distant silhouettes, hands/details, candid relationships, fashion-led characters, practical sets, or documentary action. Cars and buildings are not fallback subject categories.
 
 Because identical uploads are intentionally cached, re-uploading the exact same inputs returns the existing historical result. Use **Fresh Variations** to create a new visual-DNA rotation for that same version.
 
