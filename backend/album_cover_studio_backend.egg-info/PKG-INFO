@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: album-cover-studio-backend
+Version: 1.0.0
+Requires-Python: >=3.11
+Requires-Dist: fastapi<1,>=0.115
+Requires-Dist: uvicorn[standard]<1,>=0.30
+Requires-Dist: sqlalchemy<3,>=2.0
+Requires-Dist: alembic<2,>=1.13
+Requires-Dist: python-multipart<1,>=0.0.9
+Requires-Dist: httpx<1,>=0.27
+Requires-Dist: librosa==0.11.0
+Requires-Dist: numba==0.61.2
+Requires-Dist: llvmlite==0.44.0
+Requires-Dist: numpy<2.3,>=1.26
+Requires-Dist: pillow<13,>=10
+Provides-Extra: test
+Requires-Dist: pytest<10,>=8; extra == "test"
+Requires-Dist: pytest-asyncio<2,>=0.24; extra == "test"

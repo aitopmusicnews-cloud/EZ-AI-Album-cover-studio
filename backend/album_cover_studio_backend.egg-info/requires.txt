@@ -1,0 +1,15 @@
+fastapi<1,>=0.115
+uvicorn[standard]<1,>=0.30
+sqlalchemy<3,>=2.0
+alembic<2,>=1.13
+python-multipart<1,>=0.0.9
+httpx<1,>=0.27
+librosa==0.11.0
+numba==0.61.2
+llvmlite==0.44.0
+numpy<2.3,>=1.26
+pillow<13,>=10
+
+[test]
+pytest<10,>=8
+pytest-asyncio<2,>=0.24
