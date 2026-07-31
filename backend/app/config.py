@@ -77,6 +77,12 @@ class Settings:
     openai_image_quality: str = field(
         default_factory=lambda: os.getenv("OPENAI_IMAGE_QUALITY", "medium")
     )
+    openai_concept_model: str = field(
+        default_factory=lambda: os.getenv("OPENAI_CONCEPT_MODEL", "gpt-5.6-luna")
+    )
+    use_ai_creative_director: bool = field(
+        default_factory=lambda: _env_bool("USE_AI_CREATIVE_DIRECTOR", True)
+    )
     openai_timeout_seconds: float = field(
         default_factory=lambda: float(os.getenv("OPENAI_TIMEOUT_SECONDS", "150"))
     )

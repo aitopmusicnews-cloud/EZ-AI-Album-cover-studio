@@ -17,10 +17,11 @@ from .errors import AnalysisError, PipelineError
 from .image_client import OpenAIImageClient
 from .lyrics_analysis import LyricsAnalyzer
 from .models import AuditEvent, Generation, Variation, VariationSet
-from .prompts import build_image_prompt
+from .prompts import attach_concept_plan, build_image_prompt
 from .retry import with_retry
 from .signals import combine_signals, detect_conflict
 from .storage import LocalStorage
+from .typography import choose_typography_style
 from .validation import build_input_hash, sha256_bytes
 
 
@@ -46,6 +47,7 @@ class GenerationService:
         audio_analyzer: AudioAnalyzer,
         lyrics_analyzer: LyricsAnalyzer,
         image_client: OpenAIImageClient,
+        creative_director: object | None = None,
     ) -> None:
         self.settings = settings
         self.database = database
@@ -53,6 +55,7 @@ class GenerationService:
         self.audio_analyzer = audio_analyzer
         self.lyrics_analyzer = lyrics_analyzer
         self.image_client = image_client
+        self.creative_director = creative_director
 
     def create_or_get(
         self,
@@ -361,6 +364,59 @@ class GenerationService:
             parental_advisory=bool(generation.parental_advisory),
             creative_seed=creative_seed,
         )
+
+        # Ask a separate creative-director model to invent the actual visual premises.
+        # It sees recent sets for this song so Fresh Variations can explicitly avoid them.
+        # If this optional planning step fails, image generation still proceeds with the
+        # deterministic rule-based fallback in prompts.variation_prompt.
+        if self.creative_director is not None:
+            previous_prompts = [item.prompt for item in generation.variation_sets[-3:]]
+            try:
+                async def concept_operation() -> Any:
+                    return await self.creative_director.plan(
+                        base_brief=prompt,
+                        signal=signal,
+                        count=variation_count,
+                        creative_seed=creative_seed,
+                        title=generation.title,
+                        artist=generation.artist,
+                        previous_prompts=previous_prompts,
+                    )
+
+                plan = await with_retry(
+                    concept_operation,
+                    max_attempts=self.settings.retry_max_attempts,
+                    base_delay_seconds=self.settings.retry_base_delay_seconds,
+                    on_attempt=lambda attempt, outcome, error: self._retry_audit(
+                        db, generation.id, None, "creative_direction", attempt, outcome, error
+                    ),
+                )
+                if getattr(plan, "concepts", None):
+                    prompt = attach_concept_plan(prompt, plan.concepts)
+                    self._audit(
+                        db,
+                        generation.id,
+                        "creative_direction_plan",
+                        1,
+                        "succeeded",
+                        f"Created {len(plan.concepts)} mutually distinct visual concepts.",
+                        {
+                            "model": self.settings.openai_concept_model,
+                            "concept_names": [c.get("name") for c in plan.concepts],
+                            "request_id": getattr(plan, "request_id", None),
+                        },
+                    )
+            except Exception as exc:
+                self._audit(
+                    db,
+                    generation.id,
+                    "creative_direction_plan",
+                    1,
+                    "fallback",
+                    "AI creative director unavailable; using local diversity planner.",
+                    self._error_dict(exc),
+                )
+
         variation_set = VariationSet(
             id=str(uuid4()),
             generation_id=generation.id,
@@ -413,6 +469,12 @@ class GenerationService:
                         error,
                     ),
                 )
+                signal = combine_signals(
+                    (generation.analysis_json or {}).get("audio"),
+                    (generation.analysis_json or {}).get("lyrics"),
+                    mood_path=variation_set.mood_path,
+                )
+                typography_style = choose_typography_style(signal, position)
                 relative, width, height = self.storage.save_image(
                     generation.id,
                     variation_set.id,
@@ -421,6 +483,7 @@ class GenerationService:
                     title=generation.title,
                     artist=generation.artist,
                     parental_advisory=bool(generation.parental_advisory),
+                    typography_style=typography_style,
                 )
                 db.add(
                     Variation(

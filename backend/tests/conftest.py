@@ -12,6 +12,7 @@ from PIL import Image
 from app.config import Settings
 from app.errors import AnalysisError
 from app.image_client import GeneratedImage
+from app.prompts import variation_prompt
 from app.main import AppDependencies, create_app
 
 
@@ -86,6 +87,72 @@ class FakeLyricsAnalyzer:
         return self.signal
 
 
+class FakeCreativeDirector:
+    def __init__(self, failures: int = 0):
+        self.failures = failures
+        self.calls = 0
+        self.previous_prompts_seen: list[list[str]] = []
+
+    async def plan(
+        self,
+        *,
+        base_brief,
+        signal,
+        count,
+        creative_seed,
+        title,
+        artist,
+        previous_prompts=None,
+    ):
+        from app.creative_director import ConceptPlan
+        self.calls += 1
+        self.previous_prompts_seen.append(list(previous_prompts or []))
+        if self.calls <= self.failures:
+            raise AnalysisError("temporary creative director failure")
+        media = [
+            "35mm documentary photograph",
+            "tactile cut-paper collage",
+            "hand-painted editorial illustration",
+            "medium-format still-life photograph",
+            "two-color screenprint sleeve",
+        ]
+        subjects = [
+            "a solitary lyric-specific object",
+            "two people caught in a candid gesture",
+            "a symbolic natural form with no people",
+            "hands performing a private ritual",
+            "an abstracted practical arrangement of fabric and light",
+        ]
+        settings = [
+            "open natural ground",
+            "plain studio sweep",
+            "tabletop practical set",
+            "dark undefined interior",
+            "weather-filled open space",
+        ]
+        cameras = [
+            "wide low-angle frame",
+            "overhead graphic crop",
+            "tight macro detail",
+            "off-center documentary frame",
+            "long-distance silhouette frame",
+        ]
+        concepts = []
+        for i in range(count):
+            concepts.append({
+                "name": f"Concept {self.calls}-{i+1}",
+                "subject": subjects[i],
+                "setting": settings[i],
+                "action_or_symbol": f"song-specific action {self.calls}-{i+1}",
+                "camera": cameras[i],
+                "medium": media[i],
+                "palette": f"distinct palette {self.calls}-{i+1}",
+                "typography_zone": "clear lower-left zone away from faces",
+                "image_prompt": f"Unique cover concept batch {self.calls} variation {i+1}; materially distinct subject, setting, medium and camera.",
+            })
+        return ConceptPlan(concepts, request_id=f"concept-{self.calls}")
+
+
 class FakeImageClient:
     def __init__(self, failures: dict[int, Exception] | None = None):
         self.failures = failures or {}
@@ -94,7 +161,7 @@ class FakeImageClient:
 
     async def generate(self, prompt: str, position: int) -> GeneratedImage:
         self.calls += 1
-        self.prompts.append(prompt)
+        self.prompts.append(variation_prompt(prompt, position))
         failure = self.failures.get(self.calls)
         if failure:
             raise failure
@@ -117,6 +184,7 @@ def app_factory(tmp_path):
         audio_analyzer: Any | None = None,
         lyrics_analyzer: Any | None = None,
         image_client: Any | None = None,
+        creative_director: Any | None = None,
         retry_attempts: int = 3,
     ):
         settings = Settings(
@@ -129,12 +197,14 @@ def app_factory(tmp_path):
         audio = audio_analyzer or FakeAudioAnalyzer()
         lyrics = lyrics_analyzer or FakeLyricsAnalyzer()
         images = image_client or FakeImageClient()
+        director = creative_director or FakeCreativeDirector()
         app = create_app(
             settings,
             AppDependencies(
                 audio_analyzer=audio,
                 lyrics_analyzer=lyrics,
                 image_client=images,
+                creative_director=director,
             ),
         )
         client = TestClient(app)

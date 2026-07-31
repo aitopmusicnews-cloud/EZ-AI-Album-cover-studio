@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import Any
 
 
@@ -241,7 +242,47 @@ def build_image_prompt(
     )
 
 
+_PLAN_MARKER = "\n\n[[EZ_AI_CONCEPT_PLAN_V1]]\n"
+
+
+def attach_concept_plan(base_prompt: str, concepts: list[dict[str, str]]) -> str:
+    """Persist the creative-director plan inside VariationSet.prompt without a DB migration."""
+    payload = json.dumps({"concepts": concepts}, ensure_ascii=False, separators=(",", ":"))
+    return f"{base_prompt}{_PLAN_MARKER}{payload}"
+
+
+def _split_concept_plan(stored_prompt: str) -> tuple[str, list[dict[str, str]]]:
+    if _PLAN_MARKER not in stored_prompt:
+        return stored_prompt, []
+    base, payload = stored_prompt.split(_PLAN_MARKER, 1)
+    try:
+        parsed = json.loads(payload)
+        concepts = parsed.get("concepts", [])
+        if isinstance(concepts, list):
+            return base, [item for item in concepts if isinstance(item, dict)]
+    except (TypeError, ValueError, json.JSONDecodeError):
+        pass
+    return base, []
+
+
 def variation_prompt(base_prompt: str, position: int) -> str:
+    clean_base, concepts = _split_concept_plan(base_prompt)
+    if concepts:
+        index = (max(position, 1) - 1) % len(concepts)
+        concept = concepts[index]
+        return (
+            f"{clean_base} CREATIVE DIRECTOR CONCEPT {position}: {concept.get('name', 'Untitled concept')}. "
+            f"SUBJECT: {concept.get('subject', '')}. SETTING: {concept.get('setting', '')}. "
+            f"ACTION OR SYMBOL: {concept.get('action_or_symbol', '')}. CAMERA: {concept.get('camera', '')}. "
+            f"MEDIUM: {concept.get('medium', '')}. PALETTE: {concept.get('palette', '')}. "
+            f"TYPOGRAPHY SAFE ZONE: {concept.get('typography_zone', '')}. "
+            f"FINAL IMAGE DIRECTION: {concept.get('image_prompt', '')}. "
+            "Follow this concept as the primary art direction. Do not borrow the subject, setting, camera, or central metaphor from the other variations. "
+            "No generated title, artist lettering, logos, or watermarks."
+        )
+
+    base_prompt = clean_base
+    # Fallback when the creative-director API is unavailable: choose a per-set permutation.
     # Choose a per-set permutation from the base prompt itself.  Because the base
     # contains the input/set-specific visual DNA, different songs and fresh sets do
     # not receive the same five archetypes in the same order.

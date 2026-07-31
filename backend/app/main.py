@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .audio_analysis import AudioAnalyzer
 from .config import Settings
+from .creative_director import OpenAICreativeDirector
 from .database import create_database
 from .image_client import OpenAIImageClient
 from .lyrics_analysis import LyricsAnalyzer
@@ -22,6 +23,7 @@ class AppDependencies:
     audio_analyzer: object | None = None
     lyrics_analyzer: object | None = None
     image_client: object | None = None
+    creative_director: object | None = None
 
 
 def create_app(
@@ -42,6 +44,12 @@ def create_app(
         timeout_seconds=settings.openai_timeout_seconds,
         allow_mock_images=settings.allow_mock_images,
     )
+    creative_director = dependencies.creative_director or OpenAICreativeDirector(
+        api_key=settings.openai_api_key,
+        model=settings.openai_concept_model,
+        timeout_seconds=min(settings.openai_timeout_seconds, 90),
+        enabled=settings.use_ai_creative_director,
+    )
     generation_service = GenerationService(
         settings=settings,
         database=database,
@@ -49,6 +57,7 @@ def create_app(
         audio_analyzer=audio_analyzer,
         lyrics_analyzer=lyrics_analyzer,
         image_client=image_client,
+        creative_director=creative_director,
     )
 
     @asynccontextmanager
