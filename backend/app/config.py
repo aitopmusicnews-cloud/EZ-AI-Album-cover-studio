@@ -77,11 +77,14 @@ class Settings:
     openai_image_quality: str = field(
         default_factory=lambda: os.getenv("OPENAI_IMAGE_QUALITY", "medium")
     )
-    openai_concept_model: str = field(
-        default_factory=lambda: os.getenv("OPENAI_CONCEPT_MODEL", "gpt-5.6-luna")
+    # Gemini is intentionally separate from OpenAI: Gemini invents/enhances the
+    # cover concepts, while OpenAI only renders the resulting image prompts.
+    gemini_api_key: str | None = field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
+    gemini_concept_model: str = field(
+        default_factory=lambda: os.getenv("GEMINI_CONCEPT_MODEL", "gemini-3.6-flash")
     )
-    use_ai_creative_director: bool = field(
-        default_factory=lambda: _env_bool("USE_AI_CREATIVE_DIRECTOR", True)
+    use_gemini_creative_director: bool = field(
+        default_factory=lambda: _env_bool("USE_GEMINI_CREATIVE_DIRECTOR", True)
     )
     openai_timeout_seconds: float = field(
         default_factory=lambda: float(os.getenv("OPENAI_TIMEOUT_SECONDS", "150"))

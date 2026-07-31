@@ -47,3 +47,27 @@ class OpenAIServiceError(OpenAIError):
 class OpenAIRequestError(OpenAIError):
     code = "openai_request_error"
     retryable = False
+
+
+class GeminiError(PipelineError):
+    code = "gemini_error"
+
+
+class GeminiAuthenticationError(GeminiError):
+    code = "gemini_authentication_error"
+    retryable = False
+
+
+class GeminiRateLimitError(GeminiError):
+    code = "gemini_rate_limit"
+    retryable = True
+
+
+class GeminiServiceError(GeminiError):
+    code = "gemini_service_unavailable"
+    retryable = True
+
+
+class GeminiRequestError(GeminiError):
+    code = "gemini_request_error"
+    retryable = False

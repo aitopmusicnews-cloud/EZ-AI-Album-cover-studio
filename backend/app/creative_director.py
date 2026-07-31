@@ -7,10 +7,10 @@ from typing import Any
 import httpx
 
 from .errors import (
-    OpenAIAuthenticationError,
-    OpenAIRateLimitError,
-    OpenAIRequestError,
-    OpenAIServiceError,
+    GeminiAuthenticationError,
+    GeminiRateLimitError,
+    GeminiRequestError,
+    GeminiServiceError,
 )
 
 
@@ -20,22 +20,23 @@ class ConceptPlan:
     request_id: str | None = None
 
 
-class OpenAICreativeDirector:
-    """Creates song-specific, mutually distinct cover concepts before image generation.
+class GeminiCreativeDirector:
+    """Uses Gemini only for cover-concept/prompt enhancement.
 
-    The image model is excellent at rendering a concept but can converge on a house
-    style when every request is built from the same prompt template.  This planner
-    inserts a separate creative-director pass that invents the actual visual premises
-    and explicitly compares them with previous sets for the same song.
+    OpenAI remains the image renderer. Keeping the creative-director provider separate
+    reduces the tendency for one model family to both invent and render the same visual
+    habits. If Gemini is not configured or temporarily unavailable, the service falls
+    back to the local high-cardinality prompt planner; it never falls back to OpenAI for
+    concept enhancement.
     """
 
-    endpoint = "https://api.openai.com/v1/responses"
+    endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
 
     def __init__(
         self,
         *,
         api_key: str | None,
-        model: str = "gpt-5.6-luna",
+        model: str = "gemini-3.6-flash",
         timeout_seconds: float = 90,
         enabled: bool = True,
         transport: httpx.AsyncBaseTransport | None = None,
@@ -60,7 +61,7 @@ class OpenAICreativeDirector:
         if not self.enabled or not self.api_key:
             return ConceptPlan([])
 
-        previous = [item[-4500:] for item in (previous_prompts or [])[-3:]]
+        previous = [item[-5000:] for item in (previous_prompts or [])[-3:]]
         context = {
             "release_title": title or "",
             "artist": artist or "",
@@ -75,6 +76,7 @@ class OpenAICreativeDirector:
             "key": signal.get("key"),
             "scale": signal.get("scale"),
             "style_tags": signal.get("style_tags", [])[:8],
+            "vocal_characteristics": signal.get("vocal_characteristics"),
             "base_brief": base_brief,
             "previous_sets_to_avoid": previous,
         }
@@ -119,58 +121,55 @@ class OpenAICreativeDirector:
         }
 
         system = f"""
-You are the creative director for a professional record-label album-cover department.
-Create exactly {count} genuinely different cover concepts for ONE song.
+You are an independent creative director for a professional record-label album-cover department.
+Another company's image model will render your concepts. Your job is to invent exactly {count}
+strong, commercially credible, mutually different cover ideas for ONE song.
 
-The failure mode you must prevent is repetition. Do not make five versions of the
-same portrait, street, car, building, room, color palette, camera angle, or visual
-metaphor. Pairwise diversity is a hard requirement.
+Do not behave like a template engine. Start from the song's emotional story, lyrical clues and
+musical character, then invent visual premises that could plausibly be pitched by different art
+directors. Pairwise diversity is a hard requirement.
 
 Rules:
-- Every concept must have a different SUBJECT CATEGORY, SETTING CLASS, CAMERA LANGUAGE,
-  DOMINANT SHAPE, and IMAGE-MAKING MEDIUM from every other concept.
-- For 4-5 concepts, include at least one concept with NO PERSON and at least one concept
-  that is NOT conventional cinematic photography (for example tactile collage,
-  screenprint, painted/illustrated sleeve, xerox/print construction, or practical still-life).
+- Every concept must differ in SUBJECT CATEGORY, SETTING CLASS, CAMERA LANGUAGE, DOMINANT SHAPE,
+  VISUAL METAPHOR, and IMAGE-MAKING MEDIUM. Changing pose or color is not enough.
+- For 4-5 concepts, include at least one concept with NO PERSON and at least one concept that is
+  NOT conventional cinematic photography: e.g. tactile collage, painted/illustrated sleeve,
+  screenprint, practical still-life, xerox/print construction, handmade object, or another coherent medium.
 - No more than two concepts may center a visible human face.
-- Do not use transportation, classic cars, trucks, mansions, skylines, facades,
-  parking lots, motels, gas stations, or generic city streets unless those ideas are
-  explicitly supported by the supplied song imagery/keywords. Genre does not earn a prop.
-- Do not use cracked statues, shattered faces, chrome masks, floating fragments,
-  generic neon cyberpunk, or random abstract geometry as automatic AI-art shorthand.
-- Use only one or two song-specific lyrical clues in each concept; invent a coherent
-  visual story rather than illustrating a keyword checklist.
-- Typography will be added later. Leave a deliberate text-safe area and never place a
-  face there. Do not ask the image model to render the title or artist name.
-- Covers must feel commercially credible and visually memorable at thumbnail size.
-- If previous sets are supplied, avoid their subject, environment, composition,
-  medium, and central metaphor. Fresh means genuinely new, not a recolor.
-- The image_prompt field must be a complete, self-contained prompt for an image model.
+- Do not default to classic cars, trucks, city streets, mansions, facades, skylines, motels,
+  parking structures, gas stations or architecture-led scenes. Those require explicit lyric/theme support.
+- Do not default to cracked statues, shattered faces, chrome masks, floating fragments,
+  generic neon cyberpunk, smoke-filled portraits, or random abstract geometry.
+- Do not force genre stereotypes. A rap song does not automatically need a car/city; a country song
+  does not automatically need a truck/barn; an R&B song does not automatically need neon/bedroom imagery.
+- Use one or two song-specific clues per concept and turn them into a coherent visual story.
+- Typography is added later by the app. Do NOT render title, artist, logos or fake lettering.
+- Reserve a deliberate typography-safe region and keep faces out of that region.
+- If previous sets are supplied, avoid their central subject, environment, composition, medium,
+  dominant prop and metaphor. A fresh set must feel like a new photo shoot/campaign, not a recolor.
+- Make each image_prompt self-contained and ready for a separate image-generation API.
+- Favor memorable real-world detail, gesture, texture and unexpected-but-relevant concepts over AI clichés.
 """.strip()
+
+        user_text = (
+            "Design the next cover set from this JSON song context. Treat the provided base_brief as "
+            "signal/context, not as a mandatory composition template. You are allowed to reject its visual "
+            "suggestions when a more original song-specific concept is stronger.\n\n"
+            + json.dumps(context, ensure_ascii=False)
+        )
 
         payload: dict[str, Any] = {
             "model": self.model,
-            "input": [
-                {"role": "system", "content": system},
-                {
-                    "role": "user",
-                    "content": "Design the next cover set from this JSON context:\n"
-                    + json.dumps(context, ensure_ascii=False),
-                },
-            ],
-            "reasoning": {"effort": "low"},
-            "max_output_tokens": 2600,
-            "text": {
-                "format": {
-                    "type": "json_schema",
-                    "name": "album_cover_concept_plan",
-                    "strict": True,
-                    "schema": schema,
-                }
+            "system_instruction": system,
+            "input": user_text,
+            "response_format": {
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": schema,
             },
         }
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "x-goog-api-key": self.api_key,
             "Content-Type": "application/json",
         }
 
@@ -180,27 +179,31 @@ Rules:
             ) as client:
                 response = await client.post(self.endpoint, headers=headers, json=payload)
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
-            raise OpenAIServiceError(f"Creative-director request failed: {exc}") from exc
+            raise GeminiServiceError(f"Gemini creative-director request failed: {exc}") from exc
 
-        request_id = response.headers.get("x-request-id")
+        request_id = (
+            response.headers.get("x-request-id")
+            or response.headers.get("x-goog-request-id")
+            or response.headers.get("x-cloud-trace-context")
+        )
         if response.status_code in {401, 403}:
-            raise OpenAIAuthenticationError(
+            raise GeminiAuthenticationError(
                 self._error_message(response),
                 status_code=response.status_code,
                 request_id=request_id,
             )
         if response.status_code == 429:
-            raise OpenAIRateLimitError(
+            raise GeminiRateLimitError(
                 self._error_message(response), status_code=429, request_id=request_id
             )
         if response.status_code >= 500:
-            raise OpenAIServiceError(
+            raise GeminiServiceError(
                 self._error_message(response),
                 status_code=response.status_code,
                 request_id=request_id,
             )
         if response.status_code >= 400:
-            raise OpenAIRequestError(
+            raise GeminiRequestError(
                 self._error_message(response),
                 status_code=response.status_code,
                 request_id=request_id,
@@ -216,26 +219,31 @@ Rules:
             self._validate_diversity(concepts)
             return ConceptPlan(concepts=concepts, request_id=request_id)
         except Exception as exc:
-            raise OpenAIServiceError(
-                f"Creative director returned an invalid concept plan: {exc}",
+            raise GeminiServiceError(
+                f"Gemini returned an invalid concept plan: {exc}",
                 request_id=request_id,
             ) from exc
 
     @staticmethod
     def _extract_output_text(body: dict[str, Any]) -> str:
+        # Some API surfaces expose a convenience output_text field. REST Interactions
+        # responses expose model output in steps, so support both shapes.
         if isinstance(body.get("output_text"), str) and body["output_text"].strip():
             return body["output_text"]
-        for item in body.get("output", []):
-            if item.get("type") != "message":
+        texts: list[str] = []
+        for step in body.get("steps") or []:
+            if step.get("type") != "model_output":
                 continue
-            for content in item.get("content", []):
-                if content.get("type") == "output_text" and content.get("text"):
-                    return str(content["text"])
-        raise KeyError("No output_text in Responses API payload")
+            for content in step.get("content") or []:
+                if content.get("type") == "text" and content.get("text"):
+                    texts.append(str(content["text"]))
+        if texts:
+            return "".join(texts)
+        raise KeyError("No model-output text in Gemini Interactions response")
 
     @staticmethod
     def _validate_diversity(concepts: list[dict[str, str]]) -> None:
-        # Reject obviously duplicated plans before spending image-generation calls.
+        # Reject an obviously repetitive plan before spending image-generation calls.
         for field in ("subject", "setting", "camera", "medium"):
             normalized = [" ".join(str(c[field]).lower().split()) for c in concepts]
             if len(set(normalized)) != len(normalized):
@@ -249,6 +257,8 @@ Rules:
         try:
             payload = response.json()
             error = payload.get("error", {})
-            return str(error.get("message") or payload)
+            if isinstance(error, dict):
+                return str(error.get("message") or error)
+            return str(error or payload)
         except Exception:
-            return response.text[:500] or f"OpenAI HTTP {response.status_code}"
+            return response.text[:500] or f"Gemini HTTP {response.status_code}"

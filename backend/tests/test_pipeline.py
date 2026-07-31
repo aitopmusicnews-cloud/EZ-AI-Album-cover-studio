@@ -326,3 +326,39 @@ def test_fresh_variations_tell_creative_director_about_previous_set(app_factory)
     first_batch = images.prompts[:3]
     second_batch = images.prompts[3:]
     assert set(first_batch).isdisjoint(set(second_batch))
+
+
+def test_settings_default_creative_director_is_gemini(monkeypatch, tmp_path):
+    from app.config import Settings
+    from app.creative_director import GeminiCreativeDirector
+    from app.main import AppDependencies, create_app
+    from conftest import FakeAudioAnalyzer, FakeImageClient, FakeLyricsAnalyzer
+
+    monkeypatch.setenv("GEMINI_API_KEY", "gemini-test-key")
+    monkeypatch.setenv("GEMINI_CONCEPT_MODEL", "gemini-3.6-flash")
+    settings = Settings(
+        database_url=f"sqlite:///{tmp_path / 'gemini-default.db'}",
+        storage_root=tmp_path / "gemini-default-storage",
+        frontend_root=tmp_path / "missing-frontend",
+        openai_api_key="openai-test-key",
+    )
+    app = create_app(
+        settings,
+        AppDependencies(
+            audio_analyzer=FakeAudioAnalyzer(),
+            lyrics_analyzer=FakeLyricsAnalyzer(),
+            image_client=FakeImageClient(),
+        ),
+    )
+    assert isinstance(app.state.generation_service.creative_director, GeminiCreativeDirector)
+    assert app.state.generation_service.creative_director.api_key == "gemini-test-key"
+    assert app.state.generation_service.creative_director.model == "gemini-3.6-flash"
+
+
+def test_health_reports_provider_configuration_without_exposing_keys(app_factory):
+    client, *_ = app_factory()
+    body = client.get("/health").json()
+    assert body["status"] == "ok"
+    assert body["providers"]["openai_images"]["configured"] is True
+    assert body["providers"]["openai_images"]["model"] == "gpt-image-2"
+    assert "api_key" not in str(body).lower()

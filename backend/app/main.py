@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .audio_analysis import AudioAnalyzer
 from .config import Settings
-from .creative_director import OpenAICreativeDirector
+from .creative_director import GeminiCreativeDirector
 from .database import create_database
 from .image_client import OpenAIImageClient
 from .lyrics_analysis import LyricsAnalyzer
@@ -44,11 +44,11 @@ def create_app(
         timeout_seconds=settings.openai_timeout_seconds,
         allow_mock_images=settings.allow_mock_images,
     )
-    creative_director = dependencies.creative_director or OpenAICreativeDirector(
-        api_key=settings.openai_api_key,
-        model=settings.openai_concept_model,
+    creative_director = dependencies.creative_director or GeminiCreativeDirector(
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_concept_model,
         timeout_seconds=min(settings.openai_timeout_seconds, 90),
-        enabled=settings.use_ai_creative_director,
+        enabled=settings.use_gemini_creative_director,
     )
     generation_service = GenerationService(
         settings=settings,
@@ -82,7 +82,19 @@ def create_app(
 
     @app.get("/health")
     def health():
-        return {"status": "ok"}
+        return {
+            "status": "ok",
+            "providers": {
+                "gemini_creative_director": {
+                    "configured": bool(settings.gemini_api_key),
+                    "model": settings.gemini_concept_model,
+                },
+                "openai_images": {
+                    "configured": bool(settings.openai_api_key),
+                    "model": settings.openai_image_model,
+                },
+            },
+        }
 
     if settings.frontend_root.exists():
         app.mount("/", StaticFiles(directory=settings.frontend_root, html=True), name="frontend")

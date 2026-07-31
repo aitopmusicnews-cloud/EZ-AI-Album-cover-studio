@@ -401,7 +401,8 @@ class GenerationService:
                         "succeeded",
                         f"Created {len(plan.concepts)} mutually distinct visual concepts.",
                         {
-                            "model": self.settings.openai_concept_model,
+                            "provider": "gemini",
+                            "model": self.settings.gemini_concept_model,
                             "concept_names": [c.get("name") for c in plan.concepts],
                             "request_id": getattr(plan, "request_id", None),
                         },
@@ -413,7 +414,7 @@ class GenerationService:
                     "creative_direction_plan",
                     1,
                     "fallback",
-                    "AI creative director unavailable; using local diversity planner.",
+                    "Gemini creative director unavailable; using local diversity planner.",
                     self._error_dict(exc),
                 )
 

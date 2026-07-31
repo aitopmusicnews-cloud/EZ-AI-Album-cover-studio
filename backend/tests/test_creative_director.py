@@ -3,12 +3,12 @@ import json
 import httpx
 import pytest
 
-from app.creative_director import OpenAICreativeDirector
+from app.creative_director import GeminiCreativeDirector
+from app.errors import GeminiAuthenticationError, GeminiRateLimitError, GeminiServiceError
 
 
-@pytest.mark.asyncio
-async def test_creative_director_uses_structured_responses_api_and_parses_plan():
-    concepts = [
+def _concepts(count: int) -> list[dict[str, str]]:
+    return [
         {
             "name": f"C{i}",
             "subject": f"subject {i}",
@@ -20,33 +20,45 @@ async def test_creative_director_uses_structured_responses_api_and_parses_plan()
             "typography_zone": f"zone {i}",
             "image_prompt": f"image prompt {i}",
         }
-        for i in range(3)
+        for i in range(count)
     ]
+
+
+@pytest.mark.asyncio
+async def test_gemini_creative_director_uses_interactions_structured_output_and_parses_plan():
+    concepts = _concepts(3)
 
     async def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
-        assert request.url.path == "/v1/responses"
-        assert payload["model"] == "gpt-5.6-luna"
-        assert payload["text"]["format"]["type"] == "json_schema"
-        assert "previous_sets_to_avoid" in payload["input"][1]["content"]
+        assert request.url.path == "/v1beta/interactions"
+        assert request.headers["x-goog-api-key"] == "test-gemini-key"
+        assert payload["model"] == "gemini-3.6-flash"
+        assert payload["response_format"]["type"] == "text"
+        assert payload["response_format"]["mime_type"] == "application/json"
+        assert payload["response_format"]["schema"]["type"] == "object"
+        assert "previous_sets_to_avoid" in payload["input"]
+        assert "independent creative director" in payload["system_instruction"]
         return httpx.Response(
             200,
-            headers={"x-request-id": "req-plan"},
+            headers={"x-goog-request-id": "gem-plan"},
             json={
-                "output": [
+                "id": "int-test",
+                "status": "completed",
+                "steps": [
                     {
-                        "type": "message",
+                        "type": "model_output",
+                        "status": "done",
                         "content": [
-                            {"type": "output_text", "text": json.dumps({"concepts": concepts})}
+                            {"type": "text", "text": json.dumps({"concepts": concepts})}
                         ],
                     }
-                ]
+                ],
             },
         )
 
-    director = OpenAICreativeDirector(
-        api_key="test-key",
-        model="gpt-5.6-luna",
+    director = GeminiCreativeDirector(
+        api_key="test-gemini-key",
+        model="gemini-3.6-flash",
         transport=httpx.MockTransport(handler),
     )
     plan = await director.plan(
@@ -59,4 +71,46 @@ async def test_creative_director_uses_structured_responses_api_and_parses_plan()
         previous_prompts=["old concept"],
     )
     assert len(plan.concepts) == 3
-    assert plan.request_id == "req-plan"
+    assert plan.request_id == "gem-plan"
+
+
+@pytest.mark.asyncio
+async def test_gemini_without_key_returns_empty_plan_for_local_fallback():
+    director = GeminiCreativeDirector(api_key=None)
+    plan = await director.plan(
+        base_brief="brief",
+        signal={},
+        count=3,
+        creative_seed="seed",
+        title=None,
+        artist=None,
+    )
+    assert plan.concepts == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status,error_type",
+    [
+        (401, GeminiAuthenticationError),
+        (429, GeminiRateLimitError),
+        (503, GeminiServiceError),
+    ],
+)
+async def test_gemini_errors_are_classified(status, error_type):
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, json={"error": {"message": "provider error"}})
+
+    director = GeminiCreativeDirector(
+        api_key="test-gemini-key",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(error_type):
+        await director.plan(
+            base_brief="brief",
+            signal={},
+            count=3,
+            creative_seed="seed",
+            title=None,
+            artist=None,
+        )

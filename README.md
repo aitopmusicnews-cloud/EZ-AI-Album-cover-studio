@@ -8,7 +8,8 @@ The stack is deliberately small and Intel-Mac friendly:
 - **SQLAlchemy + SQLite** by default, with Alembic migrations
 - **librosa** for MP3/music analysis
 - Lightweight in-process lyrics NLP with no model download
-- **OpenAI Image API** adapter supporting `gpt-image-1`, `gpt-image-2`, and legacy `dall-e-3`
+- **Gemini** independent creative-director/prompt-enhancement stage
+- **OpenAI Image API** renderer supporting `gpt-image-1`, `gpt-image-2`, and legacy `dall-e-3`
 - Local filesystem image storage behind a replaceable storage class
 - No-build HTML/CSS/JavaScript UI served by FastAPI
 - Pytest integration and unit tests with a mocked image provider
@@ -57,14 +58,16 @@ album-cover-studio/
 │   │   ├── lyrics_analysis.py     # lightweight NLP
 │   │   ├── signals.py             # equal weighting + conflict detection
 │   │   ├── prompts.py             # signal-to-visual prompt translation
+│   │   ├── creative_director.py   # Gemini prompt enhancement / concept planning
 │   │   ├── image_client.py        # OpenAI Image API adapter
 │   │   ├── service.py             # pipeline, cache, retry, versioning
 │   │   ├── models.py              # audit/version schema
 │   │   └── routers/generations.py # API endpoints
 │   ├── alembic/                   # production migrations
-│   └── tests/                     # 33 passing tests
+│   └── tests/                     # mocked provider/unit/integration tests
 ├── frontend/                      # no-build browser UI + branded assets
 ├── data/                          # SQLite DB and generated files
+├── scripts/configure_gemini.py    # safe Gemini-key setup helper
 ├── .env.example
 └── Makefile
 ```
@@ -88,7 +91,15 @@ cp .env.example .env
 
 For Intel macOS, the project pins `librosa==0.11.0`, `numba==0.61.2`, and `llvmlite==0.44.0` so pip can use the compatible x86_64 wheels rather than attempting a local LLVM build.
 
-Edit `.env` and set `OPENAI_API_KEY`. Absolute paths are safest for `DATABASE_URL`, `STORAGE_ROOT`, and `FRONTEND_ROOT`; the built-in defaults already resolve to this project’s `data/` and `frontend/` directories when those variables are omitted.
+Edit `.env` and set both `OPENAI_API_KEY` and `GEMINI_API_KEY`. OpenAI renders artwork; Gemini independently invents/enhances the cover concepts. Absolute paths are safest for `DATABASE_URL`, `STORAGE_ROOT`, and `FRONTEND_ROOT`; the built-in defaults already resolve to this project’s `data/` and `frontend/` directories when those variables are omitted.
+
+For a non-coder-friendly Gemini setup, run:
+
+```bash
+.venv/bin/python scripts/configure_gemini.py
+```
+
+The helper prompts for the key without echoing it to the screen and writes only to the ignored `.env` file. Do not put either API key in source code or commit `.env` to GitHub.
 
 Run the app:
 
@@ -113,9 +124,11 @@ SQLite is appropriate for a single-process deployment. For multiple API workers,
 
 ## Anti-repetition creative director
 
-Image generation now has two stages. Before any image call, the backend asks a low-cost OpenAI text model (`OPENAI_CONCEPT_MODEL`, default `gpt-5.6-luna`) to act as a record-label creative director and produce 3-5 mutually distinct visual concepts. The planner is required to vary subject category, setting class, camera language, dominant shape, and medium; for larger sets it also includes a no-person concept and a non-photographic concept. It receives recent concept sets for the same song so **Fresh Variations** explicitly avoid prior subjects, environments, compositions, media, and central metaphors.
+Image generation has intentionally separate providers. **Gemini is the prompt enhancer / creative director; OpenAI is only the image renderer.** Before any OpenAI image call, the backend sends the analyzed song signal to Gemini (`GEMINI_CONCEPT_MODEL`, default `gemini-3.6-flash`). Gemini returns 3–5 structured, mutually different cover concepts. Each concept contains a distinct subject, setting, action/symbol, camera language, medium, palette, typography-safe zone, and a complete image prompt.
 
-The planner uses the same `OPENAI_API_KEY`; no second account or API key is required. If the planning call is temporarily unavailable, the pipeline logs the failure and falls back to the local deterministic diversity planner, so image generation can continue. Set `USE_AI_CREATIVE_DIRECTOR=false` to disable this stage.
+The planner is specifically told not to behave like a template engine. Genre alone cannot inject cars, trucks, city streets, buildings, mansions, motels, gas stations, cracked statues, chrome masks, or other recurring AI-cover clichés. For 4–5 image sets, it must include at least one no-person concept and at least one non-conventional-photography medium. Recent concept sets are supplied to Gemini when the user requests **Fresh Variations**, so the next set must avoid the prior central subject, environment, composition, medium, dominant prop, and metaphor.
+
+Gemini uses its own `GEMINI_API_KEY`; the OpenAI key is never sent to Google and the Gemini key is never sent to OpenAI. If Gemini is missing or temporarily unavailable, the pipeline logs the provider failure and falls back to the local deterministic diversity planner. It does **not** fall back to OpenAI for prompt enhancement. Set `USE_GEMINI_CREATIVE_DIRECTOR=false` to disable the Gemini stage.
 
 ## Environment variables
 
@@ -125,6 +138,9 @@ The planner uses the same `OPENAI_API_KEY`; no second account or API key is requ
 | `OPENAI_IMAGE_MODEL` | No | `gpt-image-2` | Image API model; `gpt-image-1` and legacy `dall-e-3` are also supported |
 | `OPENAI_IMAGE_QUALITY` | No | `medium` | GPT Image quality; maps to `standard`/`hd` for DALL·E 3 |
 | `OPENAI_TIMEOUT_SECONDS` | No | `150` | Per-request image generation timeout |
+| `GEMINI_API_KEY` | Yes for Gemini prompt enhancement | none | Server-side Google Gemini credential; never sent to OpenAI or the browser |
+| `GEMINI_CONCEPT_MODEL` | No | `gemini-3.6-flash` | Gemini model used only for creative direction / prompt enhancement |
+| `USE_GEMINI_CREATIVE_DIRECTOR` | No | `true` | Enable the independent Gemini concept-planning stage |
 | `DATABASE_URL` | No | project-local SQLite | SQLAlchemy database URL |
 | `STORAGE_ROOT` | No | `data/storage` | Input and normalized image storage |
 | `FRONTEND_ROOT` | No | `frontend` | Static browser application directory |
@@ -292,7 +308,7 @@ The cache key is a SHA-256 hash of the exact MP3 bytes, sanitized lyric text, re
 - Changed audio, lyrics, title, artist, or advisory choice creates `version + 1` under the same collection.
 - Old `Generation` rows and all associated `VariationSet` and `Variation` rows remain immutable and browsable.
 - Regeneration does not create a new input version; it appends `set_number + 1` to the existing version.
-- Every attempt and state transition is stored in `audit_events`, including retry attempt number, outcome, error code, HTTP status, and OpenAI request ID where available.
+- Every attempt and state transition is stored in `audit_events`, including retry attempt number, outcome, error code, HTTP status, and provider request ID where available.
 
 Stored images are downloaded immediately from the provider if a temporary URL is returned, normalized with Pillow, and persisted locally. The app never relies on expiring provider URLs. Title/artist text and the optional Parental Advisory label are rendered locally after AI generation, which keeps release text exact and prevents misspelled AI typography.
 
@@ -332,7 +348,7 @@ Run:
 make test
 ```
 
-The suite makes no OpenAI calls. It currently contains **33 passing tests** covering:
+The suite makes no live OpenAI or Gemini calls. It covers:
 
 - MP3-only input
 - lyrics-only input
@@ -346,6 +362,8 @@ The suite makes no OpenAI calls. It currently contains **33 passing tests** cove
 - version history after modified inputs
 - automatic analysis retry and audit events
 - OpenAI `401`, `429`, `503`, and `400` mapping
+- Gemini structured-output concept planning and `401`, `429`, `503` mapping
+- Gemini as the default creative director while OpenAI remains the image renderer
 - partial generation and missing-position retry
 - release title/artist/advisory persistence and exact local image compositing
 - metadata changes creating a new historical version
@@ -357,7 +375,7 @@ The executed verification commands for this deliverable were:
 
 ```bash
 cd backend && PYTHONPATH=. pytest
-# 27 passed
+# passing test count is printed by pytest
 
 DATABASE_URL=sqlite:////tmp/album-cover-migration-test.db alembic upgrade head
 # upgrade completed
