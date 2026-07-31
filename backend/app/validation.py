@@ -19,7 +19,6 @@ def sha256_bytes(data: bytes) -> str:
 def is_mp3_bytes(data: bytes) -> bool:
     if data.startswith(b"ID3"):
         return True
-    # MPEG audio frame sync. Scan a small prefix because ID3-less files can start with metadata.
     prefix = data[:4096]
     return any(
         prefix[i] == 0xFF and (prefix[i + 1] & 0xE0) == 0xE0
@@ -64,6 +63,22 @@ def sanitize_lyrics(text: str, max_chars: int) -> str:
     return normalized
 
 
+def sanitize_metadata_text(value: str | None, *, field_name: str, max_chars: int = 200) -> str | None:
+    if value is None:
+        return None
+    normalized = unicodedata.normalize("NFKC", value)
+    normalized = "".join(ch for ch in normalized if unicodedata.category(ch)[0] != "C")
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    if not normalized:
+        return None
+    if len(normalized) > max_chars:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field_name} must be {max_chars} characters or fewer.",
+        )
+    return normalized
+
+
 async def read_lyrics_file(upload: UploadFile, max_chars: int) -> str:
     suffix = Path(upload.filename or "").suffix.lower()
     content_type = (upload.content_type or "application/octet-stream").lower()
@@ -83,6 +98,16 @@ async def read_lyrics_file(upload: UploadFile, max_chars: int) -> str:
     return sanitize_lyrics(decoded, max_chars)
 
 
-def build_input_hash(audio_hash: str | None, lyrics_hash: str | None) -> str:
-    canonical = f"audio:{audio_hash or '-'}|lyrics:{lyrics_hash or '-'}".encode("utf-8")
+def build_input_hash(
+    audio_hash: str | None,
+    lyrics_hash: str | None,
+    *,
+    title: str | None = None,
+    artist: str | None = None,
+    parental_advisory: bool = False,
+) -> str:
+    canonical = (
+        f"audio:{audio_hash or '-'}|lyrics:{lyrics_hash or '-'}|"
+        f"title:{title or '-'}|artist:{artist or '-'}|advisory:{int(parental_advisory)}"
+    ).encode("utf-8")
     return sha256_bytes(canonical)

@@ -59,7 +59,7 @@ album-cover-studio/
 │   │   ├── models.py              # audit/version schema
 │   │   └── routers/generations.py # API endpoints
 │   ├── alembic/                   # production migrations
-│   └── tests/                     # 19 passing tests
+│   └── tests/                     # 22 passing tests
 ├── frontend/                      # no-build browser UI + branded assets
 ├── data/                          # SQLite DB and generated files
 ├── .env.example
@@ -82,6 +82,8 @@ cd album-cover-studio
 make setup
 cp .env.example .env
 ```
+
+For Intel macOS, the project pins `librosa==0.11.0`, `numba==0.61.2`, and `llvmlite==0.44.0` so pip can use the compatible x86_64 wheels rather than attempting a local LLVM build.
 
 Edit `.env` and set `OPENAI_API_KEY`. Absolute paths are safest for `DATABASE_URL`, `STORAGE_ROOT`, and `FRONTEND_ROOT`; the built-in defaults already resolve to this project’s `data/` and `frontend/` directories when those variables are omitted.
 
@@ -110,7 +112,7 @@ SQLite is appropriate for a single-process deployment. For multiple API workers,
 | Variable | Required | Default | Purpose |
 |---|---:|---|---|
 | `OPENAI_API_KEY` | Yes for real images | none | Server-side OpenAI credential; never sent to the browser |
-| `OPENAI_IMAGE_MODEL` | No | `gpt-image-1` | Image API model; `gpt-image-2` and `dall-e-3` are supported |
+| `OPENAI_IMAGE_MODEL` | No | `gpt-image-2` | Image API model; `gpt-image-1` and legacy `dall-e-3` are also supported |
 | `OPENAI_IMAGE_QUALITY` | No | `medium` | GPT Image quality; maps to `standard`/`hd` for DALL·E 3 |
 | `OPENAI_TIMEOUT_SECONDS` | No | `150` | Per-request image generation timeout |
 | `DATABASE_URL` | No | project-local SQLite | SQLAlchemy database URL |
@@ -134,6 +136,9 @@ SQLite is appropriate for a single-process deployment. For multiple API workers,
 - `audio`: optional `.mp3`
 - `lyrics_file`: optional UTF-8 `.txt`
 - `lyrics_text`: optional pasted text
+- `title`: optional album/single title (up to 200 characters)
+- `artist`: optional artist name (up to 200 characters)
+- `parental_advisory`: optional boolean; overlays an exact Parental Advisory label on final images
 - `collection_id`: optional 8–64 character browser/session grouping ID
 - `variation_count`: `3`, `4`, or `5`
 - `mood_path`: normally `auto`
@@ -145,6 +150,9 @@ MP3-only example:
 curl -X POST http://127.0.0.1:8000/api/generations \
   -F 'collection_id=demo_collection_01' \
   -F 'audio=@song.mp3;type=audio/mpeg' \
+  -F 'title=Midnight Drive' \
+  -F 'artist=The Artist Cut' \
+  -F 'parental_advisory=true' \
   -F 'variation_count=4' \
   -F 'mood_path=auto' \
   -F 'run_async=true'
@@ -207,19 +215,25 @@ POST /api/variations/{variation_id}/select
 GET  /api/variations/{variation_id}/download
 ```
 
+## Release metadata and exact typography
+
+The browser form accepts an optional album/single **Title**, **Artist**, and **Parental Advisory** checkbox. These values are versioned inputs. The OpenAI prompt reserves calm title and advisory-safe zones but explicitly asks the image model not to draw words. After the 1024×1024 provider image is normalized to 1000×1000, Pillow composites the exact title/artist text and optional `PARENTAL ADVISORY / EXPLICIT CONTENT` label. This avoids common generative-image spelling errors.
+
+The result panel also shows the extracted signal (BPM, key/scale, energy, loudness, genre/style confidence, audio mood, lyric mood, themes, and keywords) so incorrect heuristic classifications are visible instead of hidden.
+
 ## Signal extraction and equal weighting
 
 ### Audio
 
 `AudioAnalyzer` loads a maximum configured duration at 22.05 kHz mono, then computes:
 
-- tempo using librosa’s tempo estimator
-- RMS and dBFS-like loudness normalization
+- tempo from onset/beat tracking with half/double-tempo normalization and a confidence score
+- RMS and dBFS-like loudness measured from the original decoded amplitude (not a normalized waveform), plus dynamic range
 - spectral centroid, bandwidth, rolloff, flatness, contrast, and zero crossings
 - low-frequency power ratio and five separated dominant FFT frequencies
 - chroma-profile key and major/minor-scale correlation
-- heuristic genre and style tags
-- a normalized mood `{label, valence, energy}`
+- heuristic genre candidates/style tags with confidence
+- a normalized mood `{label, valence, energy, confidence}`
 
 Genre classification is intentionally lightweight and transparent. It is a prompt signal, not a definitive musicological label.
 
@@ -254,15 +268,15 @@ The browser presents both choices. The selected path creates a normal append-onl
 
 ## Caching, versioning, and audit trail
 
-The cache key is a SHA-256 hash of the exact MP3 bytes plus sanitized lyric text.
+The cache key is a SHA-256 hash of the exact MP3 bytes, sanitized lyric text, release title, artist name, and parental-advisory choice.
 
 - Same `collection_id` + same input hash returns the existing generation with `cache_hit=true` and does not rerun librosa, NLP, or OpenAI.
-- Changed audio or changed sanitized lyrics creates `version + 1` under the same collection.
+- Changed audio, lyrics, title, artist, or advisory choice creates `version + 1` under the same collection.
 - Old `Generation` rows and all associated `VariationSet` and `Variation` rows remain immutable and browsable.
 - Regeneration does not create a new input version; it appends `set_number + 1` to the existing version.
 - Every attempt and state transition is stored in `audit_events`, including retry attempt number, outcome, error code, HTTP status, and OpenAI request ID where available.
 
-Stored images are downloaded immediately from the provider if a temporary URL is returned, normalized with Pillow, and persisted locally. The app never relies on expiring provider URLs.
+Stored images are downloaded immediately from the provider if a temporary URL is returned, normalized with Pillow, and persisted locally. The app never relies on expiring provider URLs. Title/artist text and the optional Parental Advisory label are rendered locally after AI generation, which keeps release text exact and prevents misspelled AI typography.
 
 ## Retry and partial-failure behavior
 
@@ -291,7 +305,7 @@ Run:
 make test
 ```
 
-The suite makes no OpenAI calls. It currently contains **19 passing tests** covering:
+The suite makes no OpenAI calls. It currently contains **22 passing tests** covering:
 
 - MP3-only input
 - lyrics-only input
@@ -305,6 +319,9 @@ The suite makes no OpenAI calls. It currently contains **19 passing tests** cove
 - automatic analysis retry and audit events
 - OpenAI `401`, `429`, `503`, and `400` mapping
 - partial generation and missing-position retry
+- release title/artist/advisory persistence and exact local image compositing
+- metadata changes creating a new historical version
+- real audio-amplitude regression test proving loudness/energy are not measured from a normalized waveform
 - static browser UI serving
 - Alembic migration viability
 
@@ -312,7 +329,7 @@ The executed verification commands for this deliverable were:
 
 ```bash
 cd backend && PYTHONPATH=. pytest
-# 19 passed
+# 22 passed
 
 DATABASE_URL=sqlite:////tmp/album-cover-migration-test.db alembic upgrade head
 # upgrade completed

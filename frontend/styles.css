@@ -251,3 +251,95 @@ button.primary:hover { background: linear-gradient(135deg, #ffc083, var(--copper
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
+.release-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-input);
+}
+.checkbox-row input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--copper);
+}
+.checkbox-row span { line-height: 1.35; }
+.field-note {
+  margin: -6px 0 18px;
+  color: var(--muted-dim);
+  font-size: .76rem;
+  line-height: 1.45;
+}
+.release-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -8px 0 18px;
+}
+.meta-chip {
+  display: grid;
+  gap: 2px;
+  min-width: 120px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-input);
+}
+.meta-chip small {
+  color: var(--muted-dim);
+  font-size: .66rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.meta-chip strong { font-size: .86rem; }
+.analysis-card {
+  margin: 0 0 22px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: rgba(9, 10, 9, .42);
+}
+.analysis-card h3 { margin: 0 0 13px; font-size: .92rem; }
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 9px;
+}
+.metric {
+  display: grid;
+  gap: 4px;
+  min-height: 82px;
+  padding: 11px;
+  border-radius: 11px;
+  background: var(--surface-raised);
+  border: 1px solid rgba(157, 161, 159, .18);
+}
+.metric small {
+  color: var(--copper-bright);
+  font-size: .66rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  font-weight: 850;
+}
+.metric strong { font-size: .92rem; line-height: 1.25; }
+.metric span { color: var(--muted); font-size: .70rem; line-height: 1.35; }
+.analysis-note {
+  margin: 12px 2px 0;
+  color: var(--muted-dim);
+  font-size: .72rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 620px) {
+  .release-fields { grid-template-columns: 1fr; }
+}

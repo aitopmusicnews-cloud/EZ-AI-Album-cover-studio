@@ -39,6 +39,9 @@ async function submitGeneration(event) {
   const audio = document.querySelector("#audio").files[0];
   const lyricsFile = document.querySelector("#lyrics-file").files[0];
   const lyricsText = document.querySelector("#lyrics-text").value.trim();
+  const title = document.querySelector("#release-title").value.trim();
+  const artist = document.querySelector("#artist-name").value.trim();
+  const parentalAdvisory = document.querySelector("#parental-advisory").checked;
   const count = Number(document.querySelector("#variation-count").value);
   if (!audio && !lyricsFile && !lyricsText) return showError("Add an MP3, lyrics, or both.");
 
@@ -48,6 +51,9 @@ async function submitGeneration(event) {
     const data = new FormData();
     data.set("collection_id", state.collectionId);
     data.set("lyrics_text", lyricsText);
+    data.set("title", title);
+    data.set("artist", artist);
+    data.set("parental_advisory", String(parentalAdvisory));
     data.set("variation_count", String(count));
     data.set("mood_path", "auto");
     data.set("run_async", "true");
@@ -151,6 +157,14 @@ function renderGeneration() {
   if (generation.cache_hit) statusRow.append(element("span", "cache", "cache hit"));
   resultRoot.append(statusRow);
 
+  const releaseMeta = element("div", "release-summary");
+  if (generation.title) releaseMeta.append(metaChip("Title", generation.title));
+  if (generation.artist) releaseMeta.append(metaChip("Artist", generation.artist));
+  if (generation.parental_advisory) releaseMeta.append(metaChip("Label", "Parental Advisory"));
+  if (releaseMeta.childElementCount) resultRoot.append(releaseMeta);
+
+  if (generation.analysis) resultRoot.append(renderAnalysis(generation.analysis));
+
   if (generation.conflict && generation.status === "needs_mood_choice") {
     const conflict = element("div", "conflict");
     conflict.append(element("h3", "", "Music and lyrics point in different directions"));
@@ -217,7 +231,8 @@ function renderHistory(versions) {
     const button = element("button");
     button.append(element("span", "", `v${version.version}`));
     const source = version.has_audio && version.has_lyrics ? "Audio + lyrics" : version.has_audio ? "Audio" : "Lyrics";
-    button.append(element("strong", "", source));
+    const release = [version.artist, version.title].filter(Boolean).join(" — ");
+    button.append(element("strong", "", release || source));
     button.append(element("small", "", `${version.variation_sets.length} variation set(s)`));
     button.append(element("em", "", version.status.replaceAll("_", " ")));
     button.addEventListener("click", async () => {
@@ -268,4 +283,55 @@ function showError(message) {
 function clearError() {
   formError.textContent = "";
   formError.classList.add("hidden");
+}
+
+function metaChip(label, value) {
+  const chip = element("span", "meta-chip");
+  chip.append(element("small", "", label));
+  chip.append(element("strong", "", value));
+  return chip;
+}
+
+function renderAnalysis(analysis) {
+  const section = element("section", "analysis-card");
+  section.append(element("h3", "", "Detected signal"));
+  const grid = element("div", "analysis-grid");
+  const audio = analysis.audio;
+  const lyrics = analysis.lyrics;
+
+  if (audio) {
+    grid.append(metric("BPM", formatNumber(audio.tempo_bpm, 1), confidenceText(audio.tempo_confidence)));
+    grid.append(metric("Key", `${audio.key || "?"} ${audio.scale || ""}`.trim(), confidenceText(audio.key_confidence)));
+    grid.append(metric("Energy", `${Math.round((audio.energy || 0) * 100)}%`, audio.mood?.label || ""));
+    grid.append(metric("Loudness", `${formatNumber(audio.loudness_dbfs, 1)} dBFS`, `dynamic range ${formatNumber(audio.dynamic_range_db, 1)} dB`));
+    grid.append(metric("Genre / style", audio.inferred_genre || "unknown", confidenceText(audio.genre_confidence)));
+    grid.append(metric("Audio mood", audio.mood?.label || "unknown", confidenceText(audio.mood?.confidence)));
+  }
+  if (lyrics) {
+    grid.append(metric("Lyric mood", lyrics.mood?.label || "unknown", confidenceText(lyrics.mood?.confidence)));
+    grid.append(metric("Themes", (lyrics.themes || []).slice(0, 3).join(", ") || "none detected", (lyrics.tone || []).slice(0, 3).join(", ")));
+    grid.append(metric("Keywords", (lyrics.keywords || []).slice(0, 6).join(", ") || "none detected", ""));
+  }
+  section.append(grid);
+  const note = element("p", "analysis-note", "Audio genre and mood are estimates; BPM, loudness and spectral values are measured. The prompt blends audio and lyrics equally when both are supplied.");
+  section.append(note);
+  return section;
+}
+
+function metric(label, value, detail = "") {
+  const card = element("div", "metric");
+  card.append(element("small", "", label));
+  card.append(element("strong", "", String(value ?? "—")));
+  if (detail) card.append(element("span", "", detail));
+  return card;
+}
+
+function confidenceText(value) {
+  if (value === undefined || value === null) return "";
+  return `${Math.round(Number(value) * 100)}% confidence`;
+}
+
+function formatNumber(value, digits = 1) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : "—";
 }

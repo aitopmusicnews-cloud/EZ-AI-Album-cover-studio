@@ -8,6 +8,35 @@ import os
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
+def _load_project_env() -> None:
+    """Load root .env without adding another dependency.
+
+    Existing shell environment variables win over values in .env.
+    """
+    path = _PROJECT_ROOT / ".env"
+    if not path.exists():
+        return
+    try:
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if not key or not key.replace("_", "").isalnum():
+                continue
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+                value = value[1:-1]
+            os.environ.setdefault(key, value)
+    except OSError:
+        # Configuration still works from the shell environment if .env cannot be read.
+        return
+
+
+_load_project_env()
+
+
 def _env_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:
@@ -43,7 +72,7 @@ class Settings:
     )
     openai_api_key: str | None = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     openai_image_model: str = field(
-        default_factory=lambda: os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
+        default_factory=lambda: os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-2")
     )
     openai_image_quality: str = field(
         default_factory=lambda: os.getenv("OPENAI_IMAGE_QUALITY", "medium")

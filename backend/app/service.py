@@ -61,11 +61,16 @@ class GenerationService:
         collection_id: str | None,
         audio_bytes: bytes | None,
         lyrics_text: str | None,
+        title: str | None,
+        artist: str | None,
+        parental_advisory: bool,
     ) -> CreateResult:
         collection_id = self._normalize_collection_id(collection_id)
         audio_hash = sha256_bytes(audio_bytes) if audio_bytes else None
         lyrics_hash = sha256_bytes(lyrics_text.encode("utf-8")) if lyrics_text else None
-        input_hash = build_input_hash(audio_hash, lyrics_hash)
+        input_hash = build_input_hash(
+            audio_hash, lyrics_hash, title=title, artist=artist, parental_advisory=parental_advisory
+        )
 
         cached = db.scalar(
             select(Generation)
@@ -92,6 +97,9 @@ class GenerationService:
             audio_hash=audio_hash,
             lyrics_hash=lyrics_hash,
             lyrics_text=lyrics_text,
+            title=title,
+            artist=artist,
+            parental_advisory=parental_advisory,
             status="queued",
         )
         if audio_bytes:
@@ -110,6 +118,9 @@ class GenerationService:
                 "has_lyrics": bool(lyrics_text),
                 "input_hash": input_hash,
                 "version": generation.version,
+                "title": title,
+                "artist": artist,
+                "parental_advisory": parental_advisory,
             },
         )
         return CreateResult(self.get(db, generation.id), False)
@@ -337,7 +348,13 @@ class GenerationService:
             raise ValueError("variation_count must be between 3 and 5")
         analysis = generation.analysis_json or {}
         signal = combine_signals(analysis.get("audio"), analysis.get("lyrics"), mood_path=mood_path)
-        prompt = build_image_prompt(signal, mood_path)
+        prompt = build_image_prompt(
+            signal,
+            mood_path,
+            title=generation.title,
+            artist=generation.artist,
+            parental_advisory=bool(generation.parental_advisory),
+        )
         next_number = max((item.set_number for item in generation.variation_sets), default=0) + 1
         variation_set = VariationSet(
             id=str(uuid4()),
@@ -392,7 +409,13 @@ class GenerationService:
                     ),
                 )
                 relative, width, height = self.storage.save_image(
-                    generation.id, variation_set.id, position, generated.content
+                    generation.id,
+                    variation_set.id,
+                    position,
+                    generated.content,
+                    title=generation.title,
+                    artist=generation.artist,
+                    parental_advisory=bool(generation.parental_advisory),
                 )
                 db.add(
                     Variation(

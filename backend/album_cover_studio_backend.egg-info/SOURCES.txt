@@ -22,5 +22,6 @@ app/signals.py
 app/storage.py
 app/validation.py
 app/routers/generations.py
+tests/test_audio_analysis.py
 tests/test_openai_client.py
 tests/test_pipeline.py

@@ -64,6 +64,9 @@ class GenerationResponse(BaseModel):
     cache_hit: bool = False
     has_audio: bool
     has_lyrics: bool
+    title: str | None
+    artist: str | None
+    parental_advisory: bool
     analysis: dict[str, Any] | None
     conflict: dict[str, Any] | None
     last_error: dict[str, Any] | None

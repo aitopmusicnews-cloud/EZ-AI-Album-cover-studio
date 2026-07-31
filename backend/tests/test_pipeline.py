@@ -25,6 +25,9 @@ def create(
     lyrics=None,
     count=4,
     mood_path="auto",
+    title=None,
+    artist=None,
+    parental_advisory=False,
 ):
     files = {}
     if audio is not None:
@@ -35,6 +38,9 @@ def create(
         "variation_count": str(count),
         "mood_path": mood_path,
         "run_async": "false",
+        "title": title or "",
+        "artist": artist or "",
+        "parental_advisory": "true" if parental_advisory else "false",
     }
     return client.post("/api/generations", data=data, files=files)
 
@@ -179,6 +185,43 @@ def test_modified_input_creates_new_version_and_history_preserves_old(app_factor
     assert len(history["versions"][1]["variation_sets"][0]["variations"]) == 3
 
 
+
+def test_release_metadata_is_stored_and_composited(app_factory):
+    client, *_ = app_factory()
+    body = create(
+        client,
+        lyrics="Night city lights and thunder",
+        count=3,
+        title="Midnight Drive",
+        artist="The Artist Cut",
+        parental_advisory=True,
+    ).json()
+    assert body["title"] == "Midnight Drive"
+    assert body["artist"] == "The Artist Cut"
+    assert body["parental_advisory"] is True
+    prompt = body["variation_sets"][0]["prompt"]
+    assert "do not draw any words or lettering" in prompt
+    assert "lower-right" in prompt
+    download = client.get(body["variation_sets"][0]["variations"][0]["download_url"])
+    assert download.status_code == 200
+    from io import BytesIO
+    from PIL import Image
+    image = Image.open(BytesIO(download.content)).convert("RGB")
+    assert image.size == (1000, 1000)
+    # The exact advisory is composited in the lower-right; this area differs from
+    # the fake image provider's flat source color.
+    assert len(set(image.crop((730, 830, 970, 970)).getdata())) > 4
+
+
+def test_release_metadata_change_creates_new_version(app_factory):
+    client, *_ = app_factory()
+    first = create(client, lyrics="same lyrics", count=3, title="First Title").json()
+    second = create(client, lyrics="same lyrics", count=3, title="Second Title").json()
+    assert first["version"] == 1
+    assert second["version"] == 2
+    assert first["id"] != second["id"]
+
+
 def test_audio_analysis_is_retried_and_eventually_succeeds(app_factory, mp3_bytes):
     flaky_audio = FakeAudioAnalyzer(failures=1)
     client, _, _, _ = app_factory(audio_analyzer=flaky_audio)
@@ -238,6 +281,9 @@ def test_no_build_frontend_is_served(app_factory):
     assert "EZ AI Album Cover Studio" in response.text
     assert "/assets/ez-album-cover-logo.png" in response.text
     assert "/assets/favicon.ico" in response.text
+    assert 'id="release-title"' in response.text
+    assert 'id="artist-name"' in response.text
+    assert 'id="parental-advisory"' in response.text
 
     logo = client.get("/assets/ez-album-cover-logo.png")
     assert logo.status_code == 200

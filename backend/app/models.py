@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -28,6 +28,9 @@ class Generation(Base):
     lyrics_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     audio_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     lyrics_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    artist: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    parental_advisory: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
     analysis_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     conflict_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)

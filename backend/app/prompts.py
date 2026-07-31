@@ -14,7 +14,14 @@ _PALETTES = {
 }
 
 
-def build_image_prompt(signal: dict[str, Any], mood_path: str) -> str:
+def build_image_prompt(
+    signal: dict[str, Any],
+    mood_path: str,
+    *,
+    title: str | None = None,
+    artist: str | None = None,
+    parental_advisory: bool = False,
+) -> str:
     mood = signal["mood"]
     valence = float(mood.get("valence", 0.0))
     energy = float(mood.get("energy", 0.5))
@@ -37,18 +44,38 @@ def build_image_prompt(signal: dict[str, Any], mood_path: str) -> str:
     if imagery or keywords:
         motif_sentence = f"Possible symbolic motifs: {imagery or keywords}. Use them metaphorically, not as a literal checklist."
 
+    release_context = ""
+    if title or artist:
+        bits = []
+        if title:
+            bits.append(f"release title is '{title}'")
+        if artist:
+            bits.append(f"artist name is '{artist}'")
+        release_context = (
+            "Metadata context only: " + " and ".join(bits) + ". "
+            "Use the title only as a subtle conceptual cue; do not draw any words or lettering."
+        )
+
+    safe_zone = (
+        "Keep the upper-left area visually calm for exact title/artist typography that will be added after generation."
+    )
+    if parental_advisory:
+        safe_zone += " Also keep the lower-right corner readable for a small parental-advisory label."
+
     return " ".join(
         part.strip()
         for part in [
             "Create a unique, premium album cover artwork for a fictional release.",
+            release_context,
             f"Emotional direction: {mood['label']}.",
             priority_sentence,
             f"Core themes: {themes}.",
             motif_sentence,
             f"Visual language: {genre_style}; {composition}; {lighting}; {tonal_cue}.",
             f"Color palette: {palette}.",
+            safe_zone,
             "Use one memorable focal idea, strong silhouette readability at thumbnail size, layered depth, intentional negative space, and gallery-quality detail.",
-            "Square composition. No typography, no letters, no logos, no watermarks, no recognizable celebrities, and no imitation of a living artist's signature style.",
+            "Square composition. No typography, no letters, no logos, no watermarks, no recognizable celebrities, and no imitation of a living artist's signature style. Exact release text is composited separately after image generation.",
         ]
         if part.strip()
     )
@@ -103,6 +130,7 @@ def _genre_style(genre: str | None) -> str:
     return {
         "ambient": "minimal surrealism with atmospheric gradients and organic haze",
         "hip-hop / trap": "monumental urban surrealism with polished mixed-media texture",
+        "R&B / soul": "luxurious nocturnal editorial imagery with soft glow, reflective surfaces, and intimate depth",
         "electronic / dance": "precision digital abstraction, refracted light, and kinetic geometry",
         "rock / alternative": "raw editorial collage, distressed surfaces, and sculptural impact",
         "acoustic / singer-songwriter": "tactile photographic realism with natural materials and intimate framing",

@@ -30,7 +30,13 @@
 
     <section class="layout">
       <form class="panel input-panel" id="generation-form">
-        <div class="section-heading"><span>01</span><h2>Source material</h2></div>
+        <div class="section-heading"><span>01</span><h2>Release + source material</h2></div>
+        <div class="release-fields">
+          <label>Album / single title<input id="release-title" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Midnight Drive" /></label>
+          <label>Artist name<input id="artist-name" type="text" maxlength="200" autocomplete="off" placeholder="e.g. The Artist Cut" /></label>
+        </div>
+        <label class="checkbox-row"><input id="parental-advisory" type="checkbox" /><span>Add Parental Advisory — Explicit Content label</span></label>
+        <p class="field-note">Title, artist, and advisory are added after AI generation so the final wording is exact rather than AI-garbled.</p>
         <label>MP3 audio<input id="audio" type="file" accept="audio/mpeg,.mp3" /></label>
         <label>Lyrics text file<input id="lyrics-file" type="file" accept="text/plain,.txt" /></label>
         <label>Or paste lyrics<textarea id="lyrics-text" rows="10" placeholder="Paste lyrics here…"></textarea></label>

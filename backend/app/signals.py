@@ -6,6 +6,7 @@ from typing import Any
 _AUDIO_VISUAL_THEMES = {
     "ambient": ["vast negative space", "mist-like layers", "slow celestial motion"],
     "hip-hop / trap": ["architectural rhythm", "street-scale geometry", "heavy low-end gravity"],
+    "R&B / soul": ["velvet gradients", "intimate silhouettes", "warm nocturnal glow"],
     "electronic / dance": ["neon pulse", "kinetic light trails", "synthetic geometry"],
     "rock / alternative": ["raw material tension", "fractured motion", "high-contrast impact"],
     "acoustic / singer-songwriter": ["tactile natural materials", "human-scale intimacy", "soft daylight"],
@@ -23,11 +24,16 @@ def detect_conflict(audio: dict[str, Any] | None, lyrics: dict[str, Any] | None)
     lyrics_valence = float(lyrics_mood["valence"])
     audio_energy = float(audio_mood["energy"])
     lyrics_energy = float(lyrics_mood["energy"])
+    audio_confidence = float(audio_mood.get("confidence", 0.6))
+    lyrics_confidence = float(lyrics_mood.get("confidence", 0.6))
+    confidence = min(audio_confidence, lyrics_confidence)
     valence_gap = abs(audio_valence - lyrics_valence)
     opposite_polarity = audio_valence * lyrics_valence < -0.08
     upbeat_dark = audio_valence > 0.25 and audio_energy > 0.55 and lyrics_valence < -0.25
     dark_music_bright_words = audio_valence < -0.25 and lyrics_valence > 0.25
     severity = min(1.0, valence_gap * 0.8 + abs(audio_energy - lyrics_energy) * 0.2)
+    if confidence < 0.42:
+        return None
     if not ((opposite_polarity and valence_gap >= 0.6) or upbeat_dark or dark_music_bright_words):
         return None
     return {

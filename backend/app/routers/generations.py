@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..presentation import generation_response
 from ..schemas import GenerationResponse, HistoryResponse, RegenerateRequest
-from ..validation import read_lyrics_file, read_validated_mp3, sanitize_lyrics
+from ..validation import read_lyrics_file, read_validated_mp3, sanitize_lyrics, sanitize_metadata_text
 
 
 router = APIRouter(prefix="/api", tags=["album-covers"])
@@ -31,6 +31,9 @@ async def create_generation(
     audio: UploadFile | None = File(default=None),
     lyrics_file: UploadFile | None = File(default=None),
     lyrics_text: str | None = Form(default=None),
+    title: str | None = Form(default=None),
+    artist: str | None = Form(default=None),
+    parental_advisory: bool = Form(default=False),
     collection_id: str | None = Form(default=None),
     mood_path: str = Form(default="auto", pattern="^(auto|blend|audio|lyrics)$"),
     variation_count: int = Form(default=4, ge=3, le=5),
@@ -41,6 +44,8 @@ async def create_generation(
     file_lyrics = await read_lyrics_file(lyrics_file, settings.max_lyrics_chars) if lyrics_file else ""
     pasted_lyrics = sanitize_lyrics(lyrics_text or "", settings.max_lyrics_chars)
     combined_lyrics = "\n\n".join(part for part in (pasted_lyrics, file_lyrics) if part).strip() or None
+    clean_title = sanitize_metadata_text(title, field_name="Title")
+    clean_artist = sanitize_metadata_text(artist, field_name="Artist")
     if not audio_bytes and not combined_lyrics:
         from fastapi import HTTPException
         raise HTTPException(status_code=422, detail="Upload an MP3, provide lyrics, or provide both.")
@@ -51,6 +56,9 @@ async def create_generation(
         collection_id=collection_id,
         audio_bytes=audio_bytes,
         lyrics_text=combined_lyrics,
+        title=clean_title,
+        artist=clean_artist,
+        parental_advisory=parental_advisory,
     )
     if created.cache_hit:
         response.status_code = 200
