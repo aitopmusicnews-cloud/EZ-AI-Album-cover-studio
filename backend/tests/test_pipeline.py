@@ -210,10 +210,10 @@ def test_release_metadata_is_stored_and_composited(app_factory):
     from io import BytesIO
     from PIL import Image
     image = Image.open(BytesIO(download.content)).convert("RGB")
-    assert image.size == (1000, 1000)
+    assert image.size == (3000, 3000)
     # The exact advisory is composited in the lower-right; this area differs from
     # the fake image provider's flat source color.
-    assert len(set(image.crop((730, 830, 970, 970)).getdata())) > 4
+    assert len(set(image.crop((2190, 2490, 2910, 2910)).getdata())) > 4
 
 
 def test_release_metadata_change_creates_new_version(app_factory):
@@ -295,3 +295,34 @@ def test_no_build_frontend_is_served(app_factory):
     favicon = client.get("/assets/favicon.ico")
     assert favicon.status_code == 200
     assert favicon.headers["content-type"] in {"image/vnd.microsoft.icon", "image/x-icon"}
+
+
+def test_creative_director_makes_each_image_prompt_materially_different(app_factory):
+    client, _, _, images = app_factory()
+    body = create(client, lyrics="broken promises under summer rain", count=5).json()
+    assert body["status"] == "complete"
+    assert len(images.prompts) == 5
+    assert len(set(images.prompts)) == 5
+    assert all("CREATIVE DIRECTOR CONCEPT" in p for p in images.prompts)
+    assert any("cut-paper collage" in p for p in images.prompts)
+    assert any("screenprint sleeve" in p for p in images.prompts)
+
+
+def test_fresh_variations_tell_creative_director_about_previous_set(app_factory):
+    from conftest import FakeCreativeDirector
+
+    director = FakeCreativeDirector()
+    client, _, _, images = app_factory(creative_director=director)
+    first = create(client, lyrics="memory turns into rain", count=3).json()
+    second = client.post(
+        f"/api/generations/{first['id']}/regenerate",
+        json={"mood_path": "lyrics", "variation_count": 3, "run_async": False},
+    ).json()
+    assert len(second["variation_sets"]) == 2
+    assert director.calls == 2
+    assert director.previous_prompts_seen[0] == []
+    assert director.previous_prompts_seen[1]
+    assert "Concept 1-1" in director.previous_prompts_seen[1][0]
+    first_batch = images.prompts[:3]
+    second_batch = images.prompts[3:]
+    assert set(first_batch).isdisjoint(set(second_batch))

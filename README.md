@@ -1,6 +1,6 @@
 # EZ AI Album Cover Studio
 
-A complete, self-contained album-cover generation pipeline for a new project. Users can upload an MP3, lyrics, or both; the backend extracts audio and lyric signals, detects mood conflicts, converts those signals into visual art direction, creates 3–5 OpenAI image variations, normalizes every image to exactly **1000×1000 PNG**, and stores a versioned audit trail.
+A complete, self-contained album-cover generation pipeline for a new project. Users can upload an MP3, lyrics, or both; the backend extracts audio and lyric signals, detects mood conflicts, converts those signals into visual art direction, creates 3–5 OpenAI image variations, normalizes every image to exactly **3000×3000 PNG**, and stores a versioned audit trail.
 
 The stack is deliberately small and Intel-Mac friendly:
 
@@ -28,7 +28,7 @@ No modern stack can run on every historical macOS release. This code contains no
 - Genre-specific real-world cover direction (rap/mixtape, R&B, Americana/country, rock, pop, electronic, ambient) instead of a generic surreal-art default
 - Anti-repetition prompt guardrails that explicitly avoid cracked-statue / fragmented-face AI clichés unless the song itself calls for them
 - Exact locally composited release typography with five cover-style layouts, plus optional Parental Advisory placement
-- Exact 1000×1000 PNG normalization and immediate local persistence
+- Exact 3000×3000 PNG normalization and immediate local persistence
 - Input-hash cache reuse without rerunning analysis or OpenAI
 - Immutable input versions and append-only fresh variation sets
 - Historical version browsing, variation selection, and downloads
@@ -62,7 +62,7 @@ album-cover-studio/
 │   │   ├── models.py              # audit/version schema
 │   │   └── routers/generations.py # API endpoints
 │   ├── alembic/                   # production migrations
-│   └── tests/                     # 25 passing tests
+│   └── tests/                     # 33 passing tests
 ├── frontend/                      # no-build browser UI + branded assets
 ├── data/                          # SQLite DB and generated files
 ├── .env.example
@@ -109,6 +109,13 @@ make run
 ```
 
 SQLite is appropriate for a single-process deployment. For multiple API workers, set `DATABASE_URL` to PostgreSQL and replace `LocalStorage` with S3-compatible object storage while keeping the service interface unchanged.
+
+
+## Anti-repetition creative director
+
+Image generation now has two stages. Before any image call, the backend asks a low-cost OpenAI text model (`OPENAI_CONCEPT_MODEL`, default `gpt-5.6-luna`) to act as a record-label creative director and produce 3-5 mutually distinct visual concepts. The planner is required to vary subject category, setting class, camera language, dominant shape, and medium; for larger sets it also includes a no-person concept and a non-photographic concept. It receives recent concept sets for the same song so **Fresh Variations** explicitly avoid prior subjects, environments, compositions, media, and central metaphors.
+
+The planner uses the same `OPENAI_API_KEY`; no second account or API key is required. If the planning call is temporarily unavailable, the pipeline logs the failure and falls back to the local deterministic diversity planner, so image generation can continue. Set `USE_AI_CREATIVE_DIRECTOR=false` to disable this stage.
 
 ## Environment variables
 
@@ -220,7 +227,7 @@ GET  /api/variations/{variation_id}/download
 
 ## Release metadata and exact typography
 
-The browser form accepts an optional album/single **Title**, **Artist**, and **Parental Advisory** checkbox. These values are versioned inputs. The OpenAI prompt reserves calm title and advisory-safe zones but explicitly asks the image model not to draw words. After the 1024×1024 provider image is normalized to 1000×1000, Pillow composites the exact title/artist text and optional `PARENTAL ADVISORY / EXPLICIT CONTENT` label. This avoids common generative-image spelling errors.
+The browser form accepts an optional album/single **Title**, **Artist**, and **Parental Advisory** checkbox. These values are versioned inputs. The OpenAI prompt reserves calm title and advisory-safe zones but explicitly asks the image model not to draw words. After the 1024×1024 provider image is normalized to a 1000×1000 composition canvas, Pillow composites the exact title/artist text and optional `PARENTAL ADVISORY / EXPLICIT CONTENT` label, then the finished cover is upscaled to 3000×3000 for export. This avoids common generative-image spelling errors.
 
 The result panel also shows the extracted signal (BPM, key/scale, energy, loudness, genre/style confidence, audio mood, lyric mood, themes, and keywords) so incorrect heuristic classifications are visible instead of hidden.
 
@@ -315,7 +322,7 @@ Analysis is committed after each successful source. If image generation fails af
 
 ## Image sizing
 
-The provider is requested at `1024×1024`, because that size is supported by GPT Image and DALL·E 3. Every result is decoded and passed through `PIL.ImageOps.fit(..., (1000, 1000))`, then stored as PNG. API metadata and tests verify `width=1000`, `height=1000`.
+The provider is requested at `1024×1024`, because that size is supported by GPT Image and DALL·E 3. Every result is decoded and passed through `PIL.ImageOps.fit(..., (1000, 1000))`, composites exact release typography, then performs a high-quality Lanczos upscale to exactly `3000×3000` before storing the PNG. API metadata and tests verify `width=3000`, `height=3000`.
 
 ## Tests
 
@@ -325,7 +332,7 @@ Run:
 make test
 ```
 
-The suite makes no OpenAI calls. It currently contains **27 passing tests** covering:
+The suite makes no OpenAI calls. It currently contains **33 passing tests** covering:
 
 - MP3-only input
 - lyrics-only input
@@ -371,3 +378,8 @@ The included implementation is complete for a single-node service. Before high-v
 - record OpenAI usage/cost metadata if billing or quotas are needed
 
 Authentication, image editing, and a cross-user gallery are intentionally out of scope.
+
+
+## Final image output
+
+Every downloadable cover is an exact **1:1, 3000×3000 pixel PNG**. The OpenAI provider is requested at its supported square size, the artwork and exact typography are composed, and the final result is upscaled with Pillow Lanczos resampling to 3000×3000 for distribution-ready export.

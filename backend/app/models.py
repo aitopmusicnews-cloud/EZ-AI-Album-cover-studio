@@ -86,8 +86,8 @@ class Variation(Base):
     position: Mapped[int] = mapped_column(Integer)
     image_path: Mapped[str] = mapped_column(Text)
     mime_type: Mapped[str] = mapped_column(String(64), default="image/png")
-    width: Mapped[int] = mapped_column(Integer, default=1000)
-    height: Mapped[int] = mapped_column(Integer, default=1000)
+    width: Mapped[int] = mapped_column(Integer, default=3000)
+    height: Mapped[int] = mapped_column(Integer, default=3000)
     openai_request_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
