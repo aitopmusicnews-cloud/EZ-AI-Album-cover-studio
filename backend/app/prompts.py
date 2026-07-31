@@ -105,7 +105,9 @@ def build_image_prompt(
 
     typography_zone = (
         "Compose like a finished record sleeve and preserve one naturally uncluttered area for bold title/artist typography "
-        "that will be added after generation. Do not force the same text-safe area on every variation."
+        "that will be added after generation. CRITICAL FACE-SAFE RULE: if a human appears, keep the entire face, eyes, and "
+        "important facial features completely outside the typography-safe area. The final title must never cross a face. "
+        "Do not force the same text-safe area on every variation. The later typography treatment may be flowing script, arched vintage display, handwritten marker, or editorial italic rather than plain block lettering."
     )
     if parental_advisory:
         typography_zone += " Keep the lower-right corner readable for the explicit-content label."
@@ -150,24 +152,30 @@ def variation_prompt(base_prompt: str, position: int) -> str:
         (
             "CINEMATIC HERO COVER: use a believable artist/character or strong human silhouette in a real location. "
             "Medium or full-body framing, environmental context, dramatic practical lighting, premium music photography. "
-            "Do not use a sculpted/statue face."
+            "Do not use a sculpted/statue face. Reserve the UPPER-LEFT area for typography; place any face toward center-right "
+            "and keep it completely outside that text-safe area."
         ),
         (
             "NARRATIVE LOCATION COVER: make the setting tell the story. Use a roadside, street, bar, motel, vehicle, room, "
             "warehouse, landscape, or other genre-appropriate location with a person integrated naturally into the scene. "
-            "Wide or medium-wide camera; avoid close-up floating faces."
+            "Wide or medium-wide camera; avoid close-up floating faces. Reserve the LOWER-LEFT area for typography and keep "
+            "faces and important hands/props above or to the right of that zone."
         ),
         (
             "CLASSIC RECORD-SLEEVE COVER: create a tactile photographed scene with subtle analog print/grain character, "
-            "period-aware wardrobe or props when appropriate, strong central hierarchy, and the feel of a collectible physical release."
+            "period-aware wardrobe or props when appropriate, strong central hierarchy, and the feel of a collectible physical release. "
+            "Reserve the LOWER THIRD for bold typography. If a person is present, keep the head and full face in the upper half so "
+            "the title may overlap clothing or foreground but NEVER the face."
         ),
         (
             "MODERN MIXTAPE / POSTER COVER: high-impact photographic composition with a confident central subject, vehicle or architecture, "
-            "hard contrast and disciplined color accents. Leave useful negative space for large exact title typography."
+            "hard contrast and disciplined color accents. Reserve the TOP-CENTER strip for large exact title typography; position a human "
+            "subject lower in frame so the face starts below the title-safe strip and remains fully unobstructed."
         ),
         (
             "ALTERNATE STORY COVER: choose a different location, camera distance, time of day, dominant prop, and subject pose from all earlier "
-            "directions. Make it clearly distinct at thumbnail size while staying faithful to the same song and genre."
+            "directions. Make it clearly distinct at thumbnail size while staying faithful to the same song and genre. Reserve the BOTTOM-CENTER "
+            "area for typography and keep every face in the upper two-thirds, fully clear of the text-safe area."
         ),
     ]
     concept = concepts[(position - 1) % len(concepts)]

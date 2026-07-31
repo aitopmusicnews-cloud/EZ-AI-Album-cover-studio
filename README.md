@@ -15,6 +15,11 @@ The stack is deliberately small and Intel-Mac friendly:
 
 No modern stack can run on every historical macOS release. This code contains no Apple-Silicon-only components and targets Intel Macs that can run **Python 3.11+**. The no-build frontend removes Node.js as a runtime requirement.
 
+
+### Face-safe title placement
+
+Exact title and artist text is composited after image generation so spelling stays correct. Human subjects are now composed around explicit typography-safe zones, and the bold mixtape layout is restricted to the lower third. Titles may overlap clothing or foreground for a poster/mixtape look, but they are not placed across a face.
+
 ## What is implemented
 
 - MP3-only, lyrics-only, and combined uploads
@@ -361,3 +366,11 @@ The included implementation is complete for a single-node service. Before high-v
 - record OpenAI usage/cost metadata if billing or quotas are needed
 
 Authentication, image editing, and a cross-user gallery are intentionally out of scope.
+
+## Creative typography stage
+
+Release text is deliberately rendered in a separate deterministic stage after the AI artwork is generated. This keeps the title and artist spelling exact while allowing the lettering to behave like album-cover design rather than a plain UI label. No second paid API is required.
+
+Typography is selected automatically from the detected genre and rotated across variations. Treatments include flowing signature/script, heritage hand-painted script, raw marker lettering, vintage arched display type, editorial serif italic, and slanted layered serif. The compositor uses compatible macOS system fonts when available and falls back to standard fonts on other systems. It adds rotation, arcing, offset shadows, print-registration effects, irregular baselines, and genre-aware placement while preserving the face-safe regions requested during artwork generation.
+
+Because the exact lettering is composited locally, the image model is instructed not to render words itself. This avoids misspelled titles and avoids an extra typography API cost. The typography module (`backend/app/typography.py`) is isolated so a future external lettering provider can be plugged in later without changing the analysis or OpenAI image-generation pipeline.

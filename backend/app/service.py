@@ -20,6 +20,7 @@ from .models import AuditEvent, Generation, Variation, VariationSet
 from .prompts import build_image_prompt
 from .retry import with_retry
 from .signals import combine_signals, detect_conflict
+from .typography import choose_typography_style
 from .storage import LocalStorage
 from .validation import build_input_hash, sha256_bytes
 
@@ -408,6 +409,12 @@ class GenerationService:
                         error,
                     ),
                 )
+                signal = combine_signals(
+                    (generation.analysis_json or {}).get("audio"),
+                    (generation.analysis_json or {}).get("lyrics"),
+                    mood_path=variation_set.mood_path,
+                )
+                typography_style = choose_typography_style(signal, position)
                 relative, width, height = self.storage.save_image(
                     generation.id,
                     variation_set.id,
@@ -416,6 +423,7 @@ class GenerationService:
                     title=generation.title,
                     artist=generation.artist,
                     parental_advisory=bool(generation.parental_advisory),
+                    typography_style=typography_style,
                 )
                 db.add(
                     Variation(
