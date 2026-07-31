@@ -83,14 +83,50 @@ def build_image_prompt(
 
 def variation_prompt(base_prompt: str, position: int) -> str:
     concepts = [
-        "Build the concept around a single surreal object with restrained background detail.",
-        "Use an environmental scene with cinematic scale and a small but unmistakable focal subject.",
-        "Use bold abstract geometry and tactile material textures rather than a literal scene.",
-        "Use an intimate close-up composition with symbolic reflections, shadows, or translucent layers.",
-        "Use a graphic, poster-like composition driven by shape, depth, and controlled visual rhythm.",
+        (
+            "PHOTOGRAPHIC ENVIRONMENTAL COVER: create a cinematic real-world or dreamlike "
+            "environment with strong atmosphere, depth, architecture, landscape, weather, "
+            "light, or location as the main visual idea. Do not use a portrait, face, bust, "
+            "statue, mannequin, or mask as the focal subject."
+        ),
+        (
+            "GRAPHIC DESIGN COVER: create bold two-dimensional album artwork using geometric "
+            "forms, negative space, color blocking, pattern, visual rhythm, and modern editorial "
+            "design. Avoid photorealistic people, faces, statues, and fantasy portrait imagery."
+        ),
+        (
+            "ANALOG COLLAGE COVER: create tactile mixed-media artwork using torn paper, print "
+            "textures, ink, grain, halftone, paint, photography fragments, and unexpected symbolic "
+            "objects. It should feel handmade and materially different from polished 3D CGI."
+        ),
+        (
+            "SYMBOLIC STILL-LIFE COVER: build the cover around one memorable NON-HUMAN object or "
+            "small collection of objects tied metaphorically to the song themes. Use unusual scale, "
+            "lighting, materials, shadows, reflections, or placement. No human head, bust, mask, "
+            "mannequin, or cracked-face imagery."
+        ),
+        (
+            "WORLD-BUILDING COVER: create an expansive scene based on landscape, architecture, "
+            "nature, surreal geography, interiors, streets, sky, water, or abstract space. Make "
+            "the location itself the subject. Avoid centered portraits and sculpted human faces."
+        ),
     ]
-    return f"{base_prompt} Variation direction {position}: {concepts[(position - 1) % len(concepts)]}"
 
+    concept = concepts[(position - 1) % len(concepts)]
+
+    diversity_rule = (
+        "IMPORTANT DIVERSITY RULE: each image in this variation set must look like it came from "
+        "a completely different creative campaign. Do not repeat the subject, camera framing, "
+        "material, visual metaphor, or composition used by another variation. Do not default to "
+        "cracked faces, fragmented heads, human busts, statues, masks, mannequins, melting faces, "
+        "or disintegrating portraits unless the supplied lyrics explicitly require that imagery."
+    )
+
+    return (
+        f"{base_prompt} "
+        f"Variation direction {position}: {concept} "
+        f"{diversity_rule}"
+    )
 
 def _palette(valence: float, energy: float) -> str:
     if valence > 0.25:
@@ -136,7 +172,7 @@ def _genre_style(genre: str | None) -> str:
         "acoustic / singer-songwriter": "tactile photographic realism with natural materials and intimate framing",
         "pop": "iconic contemporary art direction with polished color blocking and a clean focal symbol",
         "cinematic / experimental": "cinematic surrealism with unusual scale, rich atmosphere, and ambiguous narrative",
-    }.get(genre, "contemporary cinematic surrealism with refined editorial art direction")
+    }.get(genre, "contemporary album-art direction chosen specifically from the supplied music and lyric signals; avoid generic fantasy portrait and cracked-statue imagery")
 
 
 def _tonal_cue(scale: str | None, key: str | None) -> str:
