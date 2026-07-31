@@ -15,11 +15,6 @@ The stack is deliberately small and Intel-Mac friendly:
 
 No modern stack can run on every historical macOS release. This code contains no Apple-Silicon-only components and targets Intel Macs that can run **Python 3.11+**. The no-build frontend removes Node.js as a runtime requirement.
 
-
-### Face-safe title placement
-
-Exact title and artist text is composited after image generation so spelling stays correct. Human subjects are now composed around explicit typography-safe zones, and the bold mixtape layout is restricted to the lower third. Titles may overlap clothing or foreground for a poster/mixtape look, but they are not placed across a face.
-
 ## What is implemented
 
 - MP3-only, lyrics-only, and combined uploads
@@ -294,6 +289,15 @@ The cache key is a SHA-256 hash of the exact MP3 bytes, sanitized lyric text, re
 
 Stored images are downloaded immediately from the provider if a temporary URL is returned, normalized with Pillow, and persisted locally. The app never relies on expiring provider URLs. Title/artist text and the optional Parental Advisory label are rendered locally after AI generation, which keeps release text exact and prevents misspelled AI typography.
 
+
+## Song-specific visual DNA and anti-repetition
+
+The image prompt is not a fixed five-template sequence. Each immutable input version contributes its input hash to a **visual DNA** seed. The seed deterministically rotates the subject strategy, genre-appropriate setting, camera viewpoint, time/weather, image-making treatment, and layout. A fresh regeneration mixes in the next variation-set number, so regenerating the same song deliberately creates a new art-direction rotation while preserving the prior set.
+
+The prompt also includes audio-to-visual cues derived from spectral balance and dynamics without exposing raw technical measurements to the image model. Lyrics contribute only a small number of concrete story clues. Human subjects are optional: some visual-DNA combinations explicitly require environment-first, object-led, architectural, distant-silhouette, hands/detail, or documentary compositions to prevent every song from collapsing into the same centered portrait.
+
+Because identical uploads are intentionally cached, re-uploading the exact same inputs returns the existing historical result. Use **Fresh Variations** to create a new visual-DNA rotation for that same version.
+
 ## Retry and partial-failure behavior
 
 Each audio-analysis, lyrics-analysis, and individual image-generation position uses exponential retry:
@@ -321,7 +325,7 @@ Run:
 make test
 ```
 
-The suite makes no OpenAI calls. It currently contains **25 passing tests** covering:
+The suite makes no OpenAI calls. It currently contains **27 passing tests** covering:
 
 - MP3-only input
 - lyrics-only input
@@ -330,7 +334,8 @@ The suite makes no OpenAI calls. It currently contains **25 passing tests** cove
 - invalid file rejection
 - exact cache reuse without image API calls
 - 3–5 variations, selection, and download
-- fresh regeneration while preserving old sets
+- fresh regeneration while preserving old sets and rotating visual DNA
+- different songs receiving different visual DNA even when genre/mood are similar
 - version history after modified inputs
 - automatic analysis retry and audit events
 - OpenAI `401`, `429`, `503`, and `400` mapping
@@ -345,7 +350,7 @@ The executed verification commands for this deliverable were:
 
 ```bash
 cd backend && PYTHONPATH=. pytest
-# 22 passed
+# 27 passed
 
 DATABASE_URL=sqlite:////tmp/album-cover-migration-test.db alembic upgrade head
 # upgrade completed
@@ -366,11 +371,3 @@ The included implementation is complete for a single-node service. Before high-v
 - record OpenAI usage/cost metadata if billing or quotas are needed
 
 Authentication, image editing, and a cross-user gallery are intentionally out of scope.
-
-## Creative typography stage
-
-Release text is deliberately rendered in a separate deterministic stage after the AI artwork is generated. This keeps the title and artist spelling exact while allowing the lettering to behave like album-cover design rather than a plain UI label. No second paid API is required.
-
-Typography is selected automatically from the detected genre and rotated across variations. Treatments include flowing signature/script, heritage hand-painted script, raw marker lettering, vintage arched display type, editorial serif italic, and slanted layered serif. The compositor uses compatible macOS system fonts when available and falls back to standard fonts on other systems. It adds rotation, arcing, offset shadows, print-registration effects, irregular baselines, and genre-aware placement while preserving the face-safe regions requested during artwork generation.
-
-Because the exact lettering is composited locally, the image model is instructed not to render words itself. This avoids misspelled titles and avoids an extra typography API cost. The typography module (`backend/app/typography.py`) is isolated so a future external lettering provider can be plugged in later without changing the analysis or OpenAI image-generation pipeline.

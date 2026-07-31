@@ -170,6 +170,9 @@ def test_regeneration_adds_fresh_set_and_preserves_original(app_factory):
     assert len(regenerated["variation_sets"]) == 2
     assert {v["id"] for v in regenerated["variation_sets"][0]["variations"]} == old_ids
     assert len(regenerated["variation_sets"][1]["variations"]) == 4
+    # A fresh set must rotate the visual DNA rather than sending OpenAI the
+    # exact same base prompt again.
+    assert regenerated["variation_sets"][0]["prompt"] != regenerated["variation_sets"][1]["prompt"]
     assert images.calls == 7
 
 
@@ -200,8 +203,8 @@ def test_release_metadata_is_stored_and_composited(app_factory):
     assert body["artist"] == "The Artist Cut"
     assert body["parental_advisory"] is True
     prompt = body["variation_sets"][0]["prompt"]
-    assert "do not draw any words or lettering" in prompt
-    assert "lower-right" in prompt
+    assert "Do not draw words or lettering" in prompt
+    assert "lower corner" in prompt
     download = client.get(body["variation_sets"][0]["variations"][0]["download_url"])
     assert download.status_code == 200
     from io import BytesIO

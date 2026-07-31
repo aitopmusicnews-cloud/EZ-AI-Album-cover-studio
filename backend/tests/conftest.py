@@ -90,9 +90,11 @@ class FakeImageClient:
     def __init__(self, failures: dict[int, Exception] | None = None):
         self.failures = failures or {}
         self.calls = 0
+        self.prompts: list[str] = []
 
     async def generate(self, prompt: str, position: int) -> GeneratedImage:
         self.calls += 1
+        self.prompts.append(prompt)
         failure = self.failures.get(self.calls)
         if failure:
             raise failure

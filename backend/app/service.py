@@ -20,7 +20,6 @@ from .models import AuditEvent, Generation, Variation, VariationSet
 from .prompts import build_image_prompt
 from .retry import with_retry
 from .signals import combine_signals, detect_conflict
-from .typography import choose_typography_style
 from .storage import LocalStorage
 from .validation import build_input_hash, sha256_bytes
 
@@ -349,14 +348,19 @@ class GenerationService:
             raise ValueError("variation_count must be between 3 and 5")
         analysis = generation.analysis_json or {}
         signal = combine_signals(analysis.get("audio"), analysis.get("lyrics"), mood_path=mood_path)
+        next_number = max((item.set_number for item in generation.variation_sets), default=0) + 1
+        # Mix the immutable input fingerprint with the set number. Different songs
+        # therefore get different visual DNA, while a Fresh Variations request for
+        # the same song deliberately rotates to a new art direction.
+        creative_seed = f"{generation.input_hash}:set:{next_number}:path:{mood_path}"
         prompt = build_image_prompt(
             signal,
             mood_path,
             title=generation.title,
             artist=generation.artist,
             parental_advisory=bool(generation.parental_advisory),
+            creative_seed=creative_seed,
         )
-        next_number = max((item.set_number for item in generation.variation_sets), default=0) + 1
         variation_set = VariationSet(
             id=str(uuid4()),
             generation_id=generation.id,
@@ -409,12 +413,6 @@ class GenerationService:
                         error,
                     ),
                 )
-                signal = combine_signals(
-                    (generation.analysis_json or {}).get("audio"),
-                    (generation.analysis_json or {}).get("lyrics"),
-                    mood_path=variation_set.mood_path,
-                )
-                typography_style = choose_typography_style(signal, position)
                 relative, width, height = self.storage.save_image(
                     generation.id,
                     variation_set.id,
@@ -423,7 +421,6 @@ class GenerationService:
                     title=generation.title,
                     artist=generation.artist,
                     parental_advisory=bool(generation.parental_advisory),
-                    typography_style=typography_style,
                 )
                 db.add(
                     Variation(
