@@ -4,14 +4,26 @@ from typing import Any
 
 
 _AUDIO_VISUAL_THEMES = {
-    "ambient": ["vast negative space", "mist-like layers", "slow celestial motion"],
-    "hip-hop / trap": ["architectural rhythm", "street-scale geometry", "heavy low-end gravity"],
-    "R&B / soul": ["velvet gradients", "intimate silhouettes", "warm nocturnal glow"],
-    "electronic / dance": ["neon pulse", "kinetic light trails", "synthetic geometry"],
-    "rock / alternative": ["raw material tension", "fractured motion", "high-contrast impact"],
-    "acoustic / singer-songwriter": ["tactile natural materials", "human-scale intimacy", "soft daylight"],
-    "pop": ["iconic central form", "clean graphic rhythm", "luminous color blocking"],
-    "cinematic / experimental": ["surreal scale", "dramatic atmosphere", "unexpected texture"],
+    "ambient": ["lonely architecture", "open landscape", "atmospheric distance"],
+    "hip-hop / trap": ["city after dark", "street-level confidence", "cars and concrete"],
+    "R&B / soul": ["late-night intimacy", "editorial portraiture", "warm city glow"],
+    "electronic / dance": ["warehouse nightlife", "night highway motion", "practical neon"],
+    "rock / alternative": ["garage realism", "road-worn texture", "live-wire attitude"],
+    "country / americana": ["roadside America", "small-town character", "guitars trucks and open road"],
+    "acoustic / singer-songwriter": ["human-scale intimacy", "roadside storytelling", "natural materials"],
+    "pop": ["fashion-editorial confidence", "iconic location", "clean visual hook"],
+    "cinematic / experimental": ["film-still narrative", "dramatic location", "unexpected real-world detail"],
+}
+
+_COUNTRY_WORDS = {
+    "bar", "beer", "boots", "bourbon", "cowboy", "country", "creek", "dirt", "farm", "field",
+    "guitar", "highway", "home", "honky", "horse", "mama", "pickup", "porch", "ranch", "river",
+    "road", "rodeo", "smalltown", "south", "southern", "truck", "whiskey",
+}
+
+_URBAN_WORDS = {
+    "block", "boss", "car", "cash", "city", "club", "corner", "crown", "diamond", "drip", "hustle",
+    "money", "night", "rich", "street", "trap", "whip",
 }
 
 
@@ -91,11 +103,16 @@ def combine_signals(
         weights = {"audio": 0.0, "lyrics": 1.0}
         mood = {**lyrics["mood"], "priority": "lyrics"}
 
+    genre = _refine_genre(audio, lyrics)
     audio_themes: list[str] = []
-    if audio:
-        audio_themes = _AUDIO_VISUAL_THEMES.get(audio["inferred_genre"], audio.get("style_tags", []))
+    if genre:
+        audio_themes = _AUDIO_VISUAL_THEMES.get(genre, audio.get("style_tags", []) if audio else [])
     lyric_themes = list(lyrics.get("themes", [])) if lyrics else []
     themes = _interleave(audio_themes, lyric_themes, limit=6)
+
+    style_tags = list(audio.get("style_tags", [])) if audio else []
+    if genre == "country / americana":
+        style_tags = ["rootsy", "road-worn", "Americana"]
 
     return {
         "source_weights": weights,
@@ -108,11 +125,32 @@ def combine_signals(
         "key": audio.get("key") if audio else None,
         "scale": audio.get("scale") if audio else None,
         "dominant_frequencies_hz": audio.get("dominant_frequencies_hz", []) if audio else [],
-        "inferred_genre": audio.get("inferred_genre") if audio else None,
-        "style_tags": audio.get("style_tags", []) if audio else [],
+        "inferred_genre": genre,
+        "style_tags": style_tags,
         "audio_signal": audio,
         "lyric_signal": lyrics,
     }
+
+
+def _refine_genre(audio: dict[str, Any] | None, lyrics: dict[str, Any] | None) -> str | None:
+    genre = audio.get("inferred_genre") if audio else None
+    if not lyrics:
+        return genre
+
+    words = {
+        str(word).lower().replace(" ", "")
+        for word in [*lyrics.get("keywords", []), *lyrics.get("imagery", [])]
+    }
+    country_hits = len(words & _COUNTRY_WORDS)
+    urban_hits = len(words & _URBAN_WORDS)
+
+    # Lyrics may provide cultural/location cues that spectral audio heuristics
+    # cannot identify reliably. Only override adjacent/ambiguous music families.
+    if country_hits >= 2 and genre in {None, "acoustic / singer-songwriter", "rock / alternative", "pop", "R&B / soul"}:
+        return "country / americana"
+    if urban_hits >= 3 and genre in {None, "pop", "electronic / dance", "R&B / soul"}:
+        return "hip-hop / trap"
+    return genre
 
 
 def _interleave(left: list[str], right: list[str], limit: int) -> list[str]:

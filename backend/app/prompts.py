@@ -4,13 +4,56 @@ from typing import Any
 
 
 _PALETTES = {
-    "positive_high": "electric coral, luminous gold, saturated cyan, and clean white highlights",
-    "positive_low": "sun-washed amber, soft peach, pale turquoise, and warm cream",
-    "negative_high": "charcoal black, bruised crimson, ultraviolet, and hard silver highlights",
-    "negative_low": "midnight blue, smoke gray, muted wine, and a faint cold glow",
-    "neutral_high": "high-contrast cobalt, acid green accents, graphite, and strobing white",
-    "neutral_low": "fog gray, desaturated blue, dusty mauve, and soft pearl",
-    "neutral_mid": "deep indigo, mineral teal, muted copper, and balanced shadow",
+    "positive_high": "sunlit amber, warm red, denim blue, cream, and crisp white highlights",
+    "positive_low": "weathered tan, faded blue, warm cream, dusty rose, and soft gold",
+    "negative_high": "deep black, steel gray, blood red accents, cold white highlights, and restrained neon",
+    "negative_low": "midnight blue, charcoal, smoke gray, muted burgundy, and dim tungsten light",
+    "neutral_high": "graphite, cobalt, hard white, selective red or amber accents, and deep shadow",
+    "neutral_low": "washed black, fog gray, desaturated blue, warm brown, and aged paper tones",
+    "neutral_mid": "deep indigo, asphalt gray, muted copper, warm skin tones, and balanced shadow",
+}
+
+# Real-world album-cover worlds.  The previous prompt leaned heavily on surreal
+# sculpture/fragment language, which caused unrelated songs to converge on the
+# same cracked-face aesthetic.  These directions intentionally start from
+# recognizable music-photo settings and let the song signal choose the details.
+_GENRE_WORLDS = {
+    "country / americana": (
+        "cinematic Americana photography: a roadside bar, open highway, pickup truck, worn denim, "
+        "guitar case, motel sign, gas station, desert or small-town landscape; authentic lived-in detail"
+    ),
+    "acoustic / singer-songwriter": (
+        "cinematic roots-music photography: roadside locations, modest interiors, old wood, denim, "
+        "guitar, car or pickup, motel or diner light, and intimate human-scale storytelling"
+    ),
+    "hip-hop / trap": (
+        "premium rap/mixtape photography: city streets after dark, cars, storefronts, apartment blocks, "
+        "parking lots, studio corridors, concrete, chrome, rain-slick pavement, selective red or neon light"
+    ),
+    "R&B / soul": (
+        "luxury R&B editorial photography: intimate portraiture, hotel rooms, late-night city windows, "
+        "classic cars, velvet or leather interiors, warm practical lights, reflective glass, elegant wardrobe"
+    ),
+    "rock / alternative": (
+        "gritty music-editorial photography: rehearsal rooms, garages, roadside stops, industrial backlots, "
+        "amplifiers, worn vehicles, stage spill, documentary flash, distressed print texture"
+    ),
+    "electronic / dance": (
+        "nightlife and club photography: warehouse interiors, tunnel lights, night highways, backstage spaces, "
+        "crowd silhouettes, reflective surfaces, practical neon, motion blur, disciplined futuristic detail"
+    ),
+    "pop": (
+        "major-label pop editorial photography: strong fashion portrait or cinematic location, memorable prop, "
+        "clean production design, polished lighting, bold but believable color, instantly readable silhouette"
+    ),
+    "ambient": (
+        "atmospheric location photography: lonely architecture, shoreline, fog, empty road, distant figure, "
+        "large sky, natural haze, practical light, restrained cinematic production design"
+    ),
+    "cinematic / experimental": (
+        "cinematic narrative photography: unusual but believable location, strong character or object, "
+        "film-still composition, practical effects, moody production design, tactile real-world materials"
+    ),
 }
 
 
@@ -28,21 +71,25 @@ def build_image_prompt(
     palette = _palette(valence, energy)
     composition = _composition(signal.get("tempo_bpm"), energy)
     lighting = _lighting(valence, energy)
-    genre_style = _genre_style(signal.get("inferred_genre"))
+    genre = signal.get("inferred_genre") or "cinematic / experimental"
+    genre_world = _genre_world(signal)
     tonal_cue = _tonal_cue(signal.get("scale"), signal.get("key"))
-    themes = ", ".join(signal.get("themes", [])[:6]) or "abstract emotional symbolism"
+    themes = ", ".join(signal.get("themes", [])[:6]) or "personal identity and atmosphere"
     imagery = ", ".join(signal.get("imagery", [])[:6])
-    keywords = ", ".join(signal.get("keywords", [])[:8])
+    keywords = ", ".join(signal.get("keywords", [])[:10])
 
     priority_sentence = {
-        "audio": "Let the musical energy and production character determine the emotional center; lyrical motifs may appear only as subtle secondary symbols.",
-        "lyrics": "Let the lyrical sentiment and imagery determine the emotional center; musical traits should shape rhythm and texture without changing that mood.",
-        "blend": "Balance music and lyrics equally so neither source dominates the emotional direction.",
+        "audio": "Let the musical energy, groove, and production character determine the emotional center; lyrical motifs may appear as secondary story details.",
+        "lyrics": "Let the lyrical story, sentiment, and imagery determine the emotional center; musical traits should shape pace, lighting, and visual intensity.",
+        "blend": "Balance music and lyrics equally: the music determines visual energy while the lyrics supply concrete story and setting clues.",
     }.get(mood_path, "Balance all available signals.")
 
     motif_sentence = ""
     if imagery or keywords:
-        motif_sentence = f"Possible symbolic motifs: {imagery or keywords}. Use them metaphorically, not as a literal checklist."
+        motif_sentence = (
+            f"Story clues from the lyrics: {imagery or keywords}. Select only the strongest one or two clues and "
+            "turn them into a believable scene, wardrobe, prop, location, weather condition, or background detail."
+        )
 
     release_context = ""
     if title or artist:
@@ -52,81 +99,83 @@ def build_image_prompt(
         if artist:
             bits.append(f"artist name is '{artist}'")
         release_context = (
-            "Metadata context only: " + " and ".join(bits) + ". "
-            "Use the title only as a subtle conceptual cue; do not draw any words or lettering."
+            "Release context: " + " and ".join(bits) + ". "
+            "Use the title as a conceptual clue only; do not draw any words or lettering. Exact typography is composited afterward."
         )
 
-    safe_zone = (
-        "Keep the upper-left area visually calm for exact title/artist typography that will be added after generation."
+    typography_zone = (
+        "Compose like a finished record sleeve and preserve one naturally uncluttered area for bold title/artist typography "
+        "that will be added after generation. Do not force the same text-safe area on every variation."
     )
     if parental_advisory:
-        safe_zone += " Also keep the lower-right corner readable for a small parental-advisory label."
+        typography_zone += " Keep the lower-right corner readable for the explicit-content label."
 
     return " ".join(
         part.strip()
         for part in [
-            "Create a unique, premium album cover artwork for a fictional release.",
+            "Create a commercially credible, release-ready album or mixtape cover, not generic AI concept art.",
             release_context,
+            f"Genre direction: {genre}. Visual world: {genre_world}.",
             f"Emotional direction: {mood['label']}.",
             priority_sentence,
             f"Core themes: {themes}.",
             motif_sentence,
-            f"Visual language: {genre_style}; {composition}; {lighting}; {tonal_cue}.",
+            f"Photographic direction: {composition}; {lighting}; {tonal_cue}.",
             f"Color palette: {palette}.",
-            safe_zone,
-            "Use one memorable focal idea, strong silhouette readability at thumbnail size, layered depth, intentional negative space, and gallery-quality detail.",
-            "Square composition. No typography, no letters, no logos, no watermarks, no recognizable celebrities, and no imitation of a living artist's signature style. Exact release text is composited separately after image generation.",
+            typography_zone,
+            (
+                "Use a believable camera viewpoint, music-industry editorial styling, authentic wardrobe/props, "
+                "layered foreground-midground-background depth, and one memorable focal subject. It should look like a real "
+                "album campaign photographed or art-directed for a recording artist."
+            ),
+            (
+                "Avoid the repeated AI-art clichés unless the lyrics explicitly demand them: no cracked marble or metal faces, "
+                "no shattered statues, no floating face fragments, no generic disintegrating bust, no glowing cyber mask, "
+                "and no random abstract geometry as the main concept."
+            ),
+            (
+                "Square composition. No generated typography, letters, fake logos, fake record-label marks, watermarks, "
+                "or recognizable celebrities. Do not imitate a living artist's signature style. Exact release text and "
+                "parental-advisory text are composited separately after image generation."
+            ),
         ]
         if part.strip()
     )
 
 
 def variation_prompt(base_prompt: str, position: int) -> str:
+    # Each variation uses a materially different album-cover archetype.  This is
+    # deliberately concrete so 3-5 requests do not collapse into the same portrait.
     concepts = [
         (
-            "PHOTOGRAPHIC ENVIRONMENTAL COVER: create a cinematic real-world or dreamlike "
-            "environment with strong atmosphere, depth, architecture, landscape, weather, "
-            "light, or location as the main visual idea. Do not use a portrait, face, bust, "
-            "statue, mannequin, or mask as the focal subject."
+            "CINEMATIC HERO COVER: use a believable artist/character or strong human silhouette in a real location. "
+            "Medium or full-body framing, environmental context, dramatic practical lighting, premium music photography. "
+            "Do not use a sculpted/statue face."
         ),
         (
-            "GRAPHIC DESIGN COVER: create bold two-dimensional album artwork using geometric "
-            "forms, negative space, color blocking, pattern, visual rhythm, and modern editorial "
-            "design. Avoid photorealistic people, faces, statues, and fantasy portrait imagery."
+            "NARRATIVE LOCATION COVER: make the setting tell the story. Use a roadside, street, bar, motel, vehicle, room, "
+            "warehouse, landscape, or other genre-appropriate location with a person integrated naturally into the scene. "
+            "Wide or medium-wide camera; avoid close-up floating faces."
         ),
         (
-            "ANALOG COLLAGE COVER: create tactile mixed-media artwork using torn paper, print "
-            "textures, ink, grain, halftone, paint, photography fragments, and unexpected symbolic "
-            "objects. It should feel handmade and materially different from polished 3D CGI."
+            "CLASSIC RECORD-SLEEVE COVER: create a tactile photographed scene with subtle analog print/grain character, "
+            "period-aware wardrobe or props when appropriate, strong central hierarchy, and the feel of a collectible physical release."
         ),
         (
-            "SYMBOLIC STILL-LIFE COVER: build the cover around one memorable NON-HUMAN object or "
-            "small collection of objects tied metaphorically to the song themes. Use unusual scale, "
-            "lighting, materials, shadows, reflections, or placement. No human head, bust, mask, "
-            "mannequin, or cracked-face imagery."
+            "MODERN MIXTAPE / POSTER COVER: high-impact photographic composition with a confident central subject, vehicle or architecture, "
+            "hard contrast and disciplined color accents. Leave useful negative space for large exact title typography."
         ),
         (
-            "WORLD-BUILDING COVER: create an expansive scene based on landscape, architecture, "
-            "nature, surreal geography, interiors, streets, sky, water, or abstract space. Make "
-            "the location itself the subject. Avoid centered portraits and sculpted human faces."
+            "ALTERNATE STORY COVER: choose a different location, camera distance, time of day, dominant prop, and subject pose from all earlier "
+            "directions. Make it clearly distinct at thumbnail size while staying faithful to the same song and genre."
         ),
     ]
-
     concept = concepts[(position - 1) % len(concepts)]
-
-    diversity_rule = (
-        "IMPORTANT DIVERSITY RULE: each image in this variation set must look like it came from "
-        "a completely different creative campaign. Do not repeat the subject, camera framing, "
-        "material, visual metaphor, or composition used by another variation. Do not default to "
-        "cracked faces, fragmented heads, human busts, statues, masks, mannequins, melting faces, "
-        "or disintegrating portraits unless the supplied lyrics explicitly require that imagery."
-    )
-
     return (
-        f"{base_prompt} "
-        f"Variation direction {position}: {concept} "
-        f"{diversity_rule}"
+        f"{base_prompt} VARIATION {position} ART DIRECTION: {concept} "
+        "This image must not repeat the composition, focal object, or camera setup of another variation."
     )
+
 
 def _palette(valence: float, energy: float) -> str:
     if valence > 0.25:
@@ -142,42 +191,36 @@ def _palette(valence: float, energy: float) -> str:
 
 def _composition(tempo: float | None, energy: float) -> str:
     if tempo is None:
-        return "a balanced visual rhythm with a clear central hierarchy"
+        return "balanced editorial framing with a clear album-cover hierarchy"
     if tempo >= 135 or energy >= 0.72:
-        return "diagonal movement, compressed perspective, and energetic repetition"
+        return "dynamic low or eye-level camera, decisive body language, compressed depth, and controlled motion cues"
     if tempo >= 100:
-        return "rhythmic modular forms and a confident centered-to-offset composition"
+        return "confident eye-level framing, rhythmic environmental detail, and a strong centered-to-offset subject"
     if tempo >= 75:
-        return "measured symmetry with gentle directional flow"
-    return "wide negative space, slow visual pacing, and a suspended focal element"
+        return "measured cinematic framing with environmental storytelling and deliberate negative space"
+    return "wide or intimate slow-paced framing, substantial negative space, and restrained subject movement"
 
 
 def _lighting(valence: float, energy: float) -> str:
     if valence > 0.25 and energy > 0.55:
-        return "radiant directional light with crisp luminous edges"
+        return "golden-hour or bright practical light with crisp highlights and optimistic contrast"
     if valence < -0.25 and energy > 0.55:
-        return "hard chiaroscuro, sharp rim light, and dense shadow"
+        return "night or storm-light cinematography, hard rim light, selective red/tungsten practicals, and dense blacks"
+    if valence < -0.25:
+        return "moody dusk, overcast, or low-key practical light with restrained highlights"
     if energy < 0.36:
-        return "diffuse atmospheric light with soft depth transitions"
-    return "cinematic side light with controlled contrast"
+        return "soft natural or practical light with atmospheric depth and gentle falloff"
+    return "cinematic side light with realistic practical sources and controlled contrast"
 
 
-def _genre_style(genre: str | None) -> str:
-    return {
-        "ambient": "minimal surrealism with atmospheric gradients and organic haze",
-        "hip-hop / trap": "monumental urban surrealism with polished mixed-media texture",
-        "R&B / soul": "luxurious nocturnal editorial imagery with soft glow, reflective surfaces, and intimate depth",
-        "electronic / dance": "precision digital abstraction, refracted light, and kinetic geometry",
-        "rock / alternative": "raw editorial collage, distressed surfaces, and sculptural impact",
-        "acoustic / singer-songwriter": "tactile photographic realism with natural materials and intimate framing",
-        "pop": "iconic contemporary art direction with polished color blocking and a clean focal symbol",
-        "cinematic / experimental": "cinematic surrealism with unusual scale, rich atmosphere, and ambiguous narrative",
-    }.get(genre, "contemporary album-art direction chosen specifically from the supplied music and lyric signals; avoid generic fantasy portrait and cracked-statue imagery")
+def _genre_world(signal: dict[str, Any]) -> str:
+    genre = signal.get("inferred_genre") or "cinematic / experimental"
+    return _GENRE_WORLDS.get(genre, _GENRE_WORLDS["cinematic / experimental"])
 
 
 def _tonal_cue(scale: str | None, key: str | None) -> str:
     if scale == "major":
-        return "harmonic shapes should feel open, resolved, and luminous"
+        return "the scene should feel emotionally open, resolved, and forward-looking"
     if scale == "minor":
-        return "harmonic shapes should feel unresolved, inward, and shadowed"
-    return "harmonic shapes should feel balanced and tonally ambiguous"
+        return "the scene should carry tension, shadow, or introspection without relying on horror clichés"
+    return "the scene should feel emotionally balanced and tonally ambiguous"

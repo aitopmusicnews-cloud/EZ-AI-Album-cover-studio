@@ -25,3 +25,4 @@ app/routers/generations.py
 tests/test_audio_analysis.py
 tests/test_openai_client.py
 tests/test_pipeline.py
+tests/test_prompts.py

@@ -24,7 +24,10 @@ No modern stack can run on every historical macOS release. This code contains no
 - Exactly equal `0.5 / 0.5` source weights when both inputs are present
 - Mood-conflict detection with separate audio-driven and lyric-driven generation choices
 - Visual prompt construction rather than raw technical-value prompting
-- 3–5 independently generated concepts per variation set
+- 3–5 independently art-directed album-cover concepts per variation set, using distinct cinematic, narrative, classic-sleeve, mixtape/poster, and alternate-story archetypes
+- Genre-specific real-world cover direction (rap/mixtape, R&B, Americana/country, rock, pop, electronic, ambient) instead of a generic surreal-art default
+- Anti-repetition prompt guardrails that explicitly avoid cracked-statue / fragmented-face AI clichés unless the song itself calls for them
+- Exact locally composited release typography with five cover-style layouts, plus optional Parental Advisory placement
 - Exact 1000×1000 PNG normalization and immediate local persistence
 - Input-hash cache reuse without rerunning analysis or OpenAI
 - Immutable input versions and append-only fresh variation sets
@@ -59,7 +62,7 @@ album-cover-studio/
 │   │   ├── models.py              # audit/version schema
 │   │   └── routers/generations.py # API endpoints
 │   ├── alembic/                   # production migrations
-│   └── tests/                     # 22 passing tests
+│   └── tests/                     # 25 passing tests
 ├── frontend/                      # no-build browser UI + branded assets
 ├── data/                          # SQLite DB and generated files
 ├── .env.example
@@ -266,6 +269,14 @@ The API stops before spending image-generation calls and returns two paths:
 
 The browser presents both choices. The selected path creates a normal append-only variation set.
 
+## Album-cover art direction
+
+The image prompt builder is intentionally biased toward **commercial music-cover photography and art direction**, not generic AI surrealism. Audio establishes pace, energy, tonality, and a broad genre family; lyric keywords supply concrete scene clues such as roads, cars, bars, city streets, weather, interiors, and other narrative details. When lyrics strongly indicate Americana/country or urban/rap imagery, the combined signal can refine an adjacent audio-only genre estimate so the cover world better matches the song.
+
+Each 3–5 image set uses a different cover archetype: cinematic hero portrait, narrative location, classic physical record sleeve, modern mixtape/poster, and an alternate story concept. The prompt explicitly rejects recurring cracked-statue, shattered-face, floating-fragment, and cyber-mask defaults unless those ideas are actually supported by the song.
+
+The image model is still told **not to generate lettering**. The exact release title, artist name, and optional Parental Advisory label are rendered locally with Pillow after generation. The five variation positions use different typography layouts so the set reads more like professionally art-directed cover options rather than the same label pasted on every image.
+
 ## Caching, versioning, and audit trail
 
 The cache key is a SHA-256 hash of the exact MP3 bytes, sanitized lyric text, release title, artist name, and parental-advisory choice.
@@ -305,7 +316,7 @@ Run:
 make test
 ```
 
-The suite makes no OpenAI calls. It currently contains **22 passing tests** covering:
+The suite makes no OpenAI calls. It currently contains **25 passing tests** covering:
 
 - MP3-only input
 - lyrics-only input
