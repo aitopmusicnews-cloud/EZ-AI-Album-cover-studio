@@ -70,7 +70,7 @@ class VariationSetResponse(BaseModel):
     concept_count: int = 0
     selected_concept_count: int = 0
     renders_per_concept: int = 0
-    concepts: list[ConceptResponse] = []
+    concepts: list[ConceptResponse] = Field(default_factory=list)
     winner_variation_id: str | None = None
     runner_up_variation_id: str | None = None
     critic_status: str = "pending"
@@ -109,7 +109,7 @@ class GenerationResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     variation_sets: list[VariationSetResponse]
-    audit_events: list[AuditEventResponse] = []
+    audit_events: list[AuditEventResponse] = Field(default_factory=list)
 
 
 class HistoryResponse(BaseModel):
