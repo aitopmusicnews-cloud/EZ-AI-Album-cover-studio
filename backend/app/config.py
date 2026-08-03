@@ -9,10 +9,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_project_env() -> None:
-    """Load root .env without adding another dependency.
-
-    Existing shell environment variables win over values in .env.
-    """
+    """Load the project .env while preserving values already exported by the host."""
     path = _PROJECT_ROOT / ".env"
     if not path.exists():
         return
@@ -30,7 +27,6 @@ def _load_project_env() -> None:
                 value = value[1:-1]
             os.environ.setdefault(key, value)
     except OSError:
-        # Configuration still works from the shell environment if .env cannot be read.
         return
 
 
@@ -42,6 +38,10 @@ def _env_bool(name: str, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    return int(os.getenv(name, str(default)))
 
 
 @dataclass(slots=True)
@@ -63,13 +63,12 @@ class Settings:
             os.getenv("FRONTEND_ROOT", str(_PROJECT_ROOT / "frontend"))
         ).resolve()
     )
-    max_audio_mb: int = field(default_factory=lambda: int(os.getenv("MAX_AUDIO_MB", "30")))
-    max_lyrics_chars: int = field(
-        default_factory=lambda: int(os.getenv("MAX_LYRICS_CHARS", "50000"))
-    )
+    max_audio_mb: int = field(default_factory=lambda: _env_int("MAX_AUDIO_MB", 30))
+    max_lyrics_chars: int = field(default_factory=lambda: _env_int("MAX_LYRICS_CHARS", 50_000))
     audio_analysis_max_seconds: int = field(
-        default_factory=lambda: int(os.getenv("AUDIO_ANALYSIS_MAX_SECONDS", "180"))
+        default_factory=lambda: _env_int("AUDIO_ANALYSIS_MAX_SECONDS", 180)
     )
+
     openai_api_key: str | None = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     openai_image_model: str = field(
         default_factory=lambda: os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-2")
@@ -77,21 +76,50 @@ class Settings:
     openai_image_quality: str = field(
         default_factory=lambda: os.getenv("OPENAI_IMAGE_QUALITY", "medium")
     )
-    # Gemini is intentionally separate from OpenAI: Gemini invents/enhances the
-    # cover concepts, while OpenAI only renders the resulting image prompts.
+    openai_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("OPENAI_TIMEOUT_SECONDS", "150"))
+    )
+
     gemini_api_key: str | None = field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
     gemini_concept_model: str = field(
         default_factory=lambda: os.getenv("GEMINI_CONCEPT_MODEL", "gemini-3.6-flash")
     )
+    gemini_critic_model: str = field(
+        default_factory=lambda: os.getenv(
+            "GEMINI_CRITIC_MODEL", os.getenv("GEMINI_CONCEPT_MODEL", "gemini-3.6-flash")
+        )
+    )
     use_gemini_creative_director: bool = field(
         default_factory=lambda: _env_bool("USE_GEMINI_CREATIVE_DIRECTOR", True)
     )
-    openai_timeout_seconds: float = field(
-        default_factory=lambda: float(os.getenv("OPENAI_TIMEOUT_SECONDS", "150"))
+
+    concept_count: int = field(default_factory=lambda: _env_int("CONCEPT_COUNT", 8))
+    selected_concept_count: int = field(
+        default_factory=lambda: _env_int("SELECTED_CONCEPT_COUNT", 2)
     )
-    retry_max_attempts: int = field(
-        default_factory=lambda: int(os.getenv("RETRY_MAX_ATTEMPTS", "3"))
+    renders_per_concept: int = field(
+        default_factory=lambda: _env_int("RENDERS_PER_CONCEPT", 2)
     )
+    max_parallel_renders: int = field(
+        default_factory=lambda: _env_int("MAX_PARALLEL_RENDERS", 2)
+    )
+    enable_concept_ranking: bool = field(
+        default_factory=lambda: _env_bool("ENABLE_CONCEPT_RANKING", True)
+    )
+    enable_cover_critic: bool = field(
+        default_factory=lambda: _env_bool("ENABLE_COVER_CRITIC", True)
+    )
+    enable_platform_scoring: bool = field(
+        default_factory=lambda: _env_bool("ENABLE_PLATFORM_SCORING", True)
+    )
+    enable_market_positioning: bool = field(
+        default_factory=lambda: _env_bool("ENABLE_MARKET_POSITIONING", False)
+    )
+    enable_commercial_benchmarking: bool = field(
+        default_factory=lambda: _env_bool("ENABLE_COMMERCIAL_BENCHMARKING", False)
+    )
+
+    retry_max_attempts: int = field(default_factory=lambda: _env_int("RETRY_MAX_ATTEMPTS", 3))
     retry_base_delay_seconds: float = field(
         default_factory=lambda: float(os.getenv("RETRY_BASE_DELAY_SECONDS", "0.75"))
     )
@@ -108,6 +136,20 @@ class Settings:
     allow_mock_images: bool = field(
         default_factory=lambda: _env_bool("ALLOW_MOCK_IMAGES", False)
     )
+
+    def __post_init__(self) -> None:
+        if self.concept_count < 4:
+            raise ValueError("CONCEPT_COUNT must be at least 4")
+        if not 1 <= self.selected_concept_count <= self.concept_count:
+            raise ValueError("SELECTED_CONCEPT_COUNT must be between 1 and CONCEPT_COUNT")
+        if self.renders_per_concept < 1:
+            raise ValueError("RENDERS_PER_CONCEPT must be at least 1")
+        if self.max_parallel_renders < 1:
+            raise ValueError("MAX_PARALLEL_RENDERS must be at least 1")
+
+    @property
+    def render_count(self) -> int:
+        return self.selected_concept_count * self.renders_per_concept
 
     @property
     def max_audio_bytes(self) -> int:
