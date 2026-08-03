@@ -72,11 +72,12 @@ class MajorLabelGenerationService(GenerationService):
             concepts=concepts, signal=signal, title=generation.title, artist=generation.artist,
             selected_count=min(self.settings.selected_concept_count, len(concepts)),
         )
+        selected_total = max(1, len(ranking.selected_concept_ids))
         variation_set = VariationSet(
             id=str(uuid4()), generation_id=generation.id, set_number=set_number,
             mood_path=mood_path, prompt=brief, requested_count=variation_count,
-            concept_count=len(concepts), selected_concept_count=len(ranking.selected_concept_ids),
-            renders_per_concept=max(1, (variation_count + len(ranking.selected_concept_ids) - 1) // len(ranking.selected_concept_ids)),
+            concept_count=len(concepts), selected_concept_count=selected_total,
+            renders_per_concept=max(1, (variation_count + selected_total - 1) // selected_total),
             concept_ranking_json=ranking.as_dict(), critic_status="pending", status="rendering",
         )
         db.add(variation_set)
