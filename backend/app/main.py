@@ -80,11 +80,12 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        if settings.auto_create_schema:
-            database.create_all()
+        # Always run the idempotent schema check before accepting requests. This
+        # protects Render deployments when the database predates the latest code.
+        database.create_all()
         yield
 
-    app = FastAPI(title=settings.app_name, version="1.1.0", lifespan=lifespan)
+    app = FastAPI(title=settings.app_name, version="1.1.1", lifespan=lifespan)
     app.state.settings = settings
     app.state.database = database
     app.state.generation_service = generation_service
