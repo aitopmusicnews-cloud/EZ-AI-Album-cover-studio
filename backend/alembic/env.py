@@ -6,15 +6,19 @@ import os
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.database import Base
-from app import models  # noqa: F401 - imports metadata
+from app.database import Base, normalize_database_url
+from app import models  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 if os.getenv("DATABASE_URL"):
-    config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
+    config.set_main_option("sqlalchemy.url", normalize_database_url(os.environ["DATABASE_URL"]))
+else:
+    configured = config.get_main_option("sqlalchemy.url")
+    if configured:
+        config.set_main_option("sqlalchemy.url", normalize_database_url(configured))
 
 target_metadata = Base.metadata
 
