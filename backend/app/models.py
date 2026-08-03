@@ -3,7 +3,18 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -63,14 +74,58 @@ class VariationSet(Base):
     mood_path: Mapped[str] = mapped_column(String(16))
     prompt: Mapped[str] = mapped_column(Text)
     requested_count: Mapped[int] = mapped_column(Integer)
-    status: Mapped[str] = mapped_column(String(24), default="generating")
+    concept_count: Mapped[int] = mapped_column(Integer, default=8)
+    selected_concept_count: Mapped[int] = mapped_column(Integer, default=2)
+    renders_per_concept: Mapped[int] = mapped_column(Integer, default=2)
+    concept_ranking_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    ai_winner_variation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    ai_runner_up_variation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    critic_status: Mapped[str] = mapped_column(String(24), default="pending")
+    critic_error_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(24), default="planning_concepts")
     error_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     generation: Mapped[Generation] = relationship(back_populates="variation_sets")
+    concepts: Mapped[list[ConceptCandidate]] = relationship(
+        back_populates="variation_set",
+        cascade="all, delete-orphan",
+        order_by="ConceptCandidate.ordinal",
+    )
     variations: Mapped[list[Variation]] = relationship(
         back_populates="variation_set", cascade="all, delete-orphan", order_by="Variation.position"
     )
+
+
+class ConceptCandidate(Base):
+    __tablename__ = "concept_candidates"
+    __table_args__ = (
+        UniqueConstraint("variation_set_id", "ordinal", name="uq_concept_set_ordinal"),
+        Index("ix_concept_set_rank", "variation_set_id", "rank"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    variation_set_id: Mapped[str] = mapped_column(
+        ForeignKey("variation_sets.id", ondelete="CASCADE"), index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(200))
+    subject: Mapped[str] = mapped_column(Text)
+    setting: Mapped[str] = mapped_column(Text)
+    action_or_symbol: Mapped[str] = mapped_column(Text)
+    camera: Mapped[str] = mapped_column(Text)
+    medium: Mapped[str] = mapped_column(Text)
+    palette: Mapped[str] = mapped_column(Text)
+    typography_zone: Mapped[str] = mapped_column(Text)
+    image_prompt: Mapped[str] = mapped_column(Text)
+    scores_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    total_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    selected_for_render: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    variation_set: Mapped[VariationSet] = relationship(back_populates="concepts")
+    variations: Mapped[list[Variation]] = relationship(back_populates="concept_candidate")
 
 
 class Variation(Base):
@@ -83,15 +138,30 @@ class Variation(Base):
     variation_set_id: Mapped[str] = mapped_column(
         ForeignKey("variation_sets.id", ondelete="CASCADE"), index=True
     )
+    concept_candidate_id: Mapped[str | None] = mapped_column(
+        ForeignKey("concept_candidates.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     position: Mapped[int] = mapped_column(Integer)
+    render_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    render_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_path: Mapped[str] = mapped_column(Text)
     mime_type: Mapped[str] = mapped_column(String(64), default="image/png")
     width: Mapped[int] = mapped_column(Integer, default=3000)
     height: Mapped[int] = mapped_column(Integer, default=3000)
     openai_request_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    critic_scores_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    cover_feedback_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    platform_scores_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    market_positioning_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    cover_score: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
+    thumbnail_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    commercial_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    selection_tier: Mapped[str] = mapped_column(String(16), default="unranked")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     variation_set: Mapped[VariationSet] = relationship(back_populates="variations")
+    concept_candidate: Mapped[ConceptCandidate | None] = relationship(back_populates="variations")
 
 
 class AuditEvent(Base):
