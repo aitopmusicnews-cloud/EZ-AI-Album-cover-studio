@@ -18,8 +18,8 @@ dependencies = [
   "llvmlite==0.44.0",
   "numpy>=1.26,<2.3",
   "pillow>=10,<13",
+  "psycopg[binary]>=3.2,<4",
 ]
-
 [project.optional-dependencies]
 test = ["pytest>=8,<10", "pytest-asyncio>=0.24,<2"]
 
