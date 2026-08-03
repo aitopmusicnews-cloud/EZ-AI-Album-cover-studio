@@ -44,6 +44,14 @@ class OpenAIImageClient:
         self.allow_mock_images = allow_mock_images
 
     async def generate(self, prompt: str, position: int) -> GeneratedImage:
+        """Legacy shared-prompt path."""
+        return await self._generate(variation_prompt(prompt, position), position)
+
+    async def generate_exact(self, prompt: str, position: int = 1) -> GeneratedImage:
+        """Render one already-complete concept prompt without merging another concept."""
+        return await self._generate(prompt, position)
+
+    async def _generate(self, final_prompt: str, position: int) -> GeneratedImage:
         if not self.api_key:
             if self.allow_mock_images:
                 return GeneratedImage(self._placeholder(position))
@@ -53,14 +61,13 @@ class OpenAIImageClient:
 
         payload: dict[str, Any] = {
             "model": self.model,
-            "prompt": variation_prompt(prompt, position),
+            "prompt": final_prompt,
             "n": 1,
             "size": "1024x1024",
         }
         if self.model.startswith("gpt-image"):
             payload.update({"quality": self.quality, "output_format": "png"})
         else:
-            # Legacy DALL-E models use response_format. DALL-E 3 supports one image/request.
             payload["response_format"] = "b64_json"
             if self.model == "dall-e-3":
                 payload["quality"] = "hd" if self.quality == "high" else "standard"
@@ -86,9 +93,7 @@ class OpenAIImageClient:
             )
         if response.status_code == 429:
             raise OpenAIRateLimitError(
-                self._error_message(response),
-                status_code=429,
-                request_id=request_id,
+                self._error_message(response), status_code=429, request_id=request_id
             )
         if response.status_code >= 500:
             raise OpenAIServiceError(
@@ -120,8 +125,7 @@ class OpenAIImageClient:
             if isinstance(exc, OpenAIRequestError):
                 raise
             raise OpenAIServiceError(
-                f"OpenAI returned an invalid image response: {exc}",
-                request_id=request_id,
+                f"OpenAI returned an invalid image response: {exc}", request_id=request_id
             ) from exc
 
     @staticmethod
