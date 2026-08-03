@@ -37,7 +37,6 @@ def create_app(
     dependencies = dependencies or AppDependencies()
     database = create_database(settings.database_url)
     storage = LocalStorage(settings.storage_root)
-    storage.root.mkdir(parents=True, exist_ok=True)
     audio_analyzer = dependencies.audio_analyzer or AudioAnalyzer(
         settings.audio_analysis_max_seconds
     )
