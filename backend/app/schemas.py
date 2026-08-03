@@ -11,13 +11,13 @@ MoodPath = Literal["auto", "blend", "audio", "lyrics"]
 
 class GenerateRequest(BaseModel):
     mood_path: MoodPath = "auto"
-    variation_count: int = Field(default=4, ge=3, le=5)
+    variation_count: int = Field(default=4, ge=3, le=8)
     run_async: bool = True
 
 
 class RegenerateRequest(BaseModel):
     mood_path: Literal["blend", "audio", "lyrics"] = "blend"
-    variation_count: int = Field(default=4, ge=3, le=5)
+    variation_count: int = Field(default=4, ge=3, le=8)
     run_async: bool = True
 
 
