@@ -8,13 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .audio_analysis import AudioAnalyzer
+from .concept_ranking import GeminiConceptRanker
 from .config import Settings
+from .cover_critic import GeminiCoverCritic
 from .creative_director import GeminiCreativeDirector
 from .database import create_database
 from .image_client import OpenAIImageClient
 from .lyrics_analysis import LyricsAnalyzer
+from .major_label_service import MajorLabelGenerationService
 from .routers.generations import router
-from .service import GenerationService
 from .storage import LocalStorage
 
 
@@ -24,6 +26,8 @@ class AppDependencies:
     lyrics_analyzer: object | None = None
     image_client: object | None = None
     creative_director: object | None = None
+    concept_ranker: object | None = None
+    cover_critic: object | None = None
 
 
 def create_app(
@@ -50,7 +54,19 @@ def create_app(
         timeout_seconds=min(settings.openai_timeout_seconds, 90),
         enabled=settings.use_gemini_creative_director,
     )
-    generation_service = GenerationService(
+    concept_ranker = dependencies.concept_ranker or GeminiConceptRanker(
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_concept_model,
+        timeout_seconds=min(settings.openai_timeout_seconds, 90),
+        enabled=settings.enable_concept_ranking,
+    )
+    cover_critic = dependencies.cover_critic or GeminiCoverCritic(
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_critic_model,
+        timeout_seconds=min(settings.openai_timeout_seconds, 120),
+        enabled=settings.enable_cover_critic,
+    )
+    generation_service = MajorLabelGenerationService(
         settings=settings,
         database=database,
         storage=storage,
@@ -58,6 +74,8 @@ def create_app(
         lyrics_analyzer=lyrics_analyzer,
         image_client=image_client,
         creative_director=creative_director,
+        concept_ranker=concept_ranker,
+        cover_critic=cover_critic,
     )
 
     @asynccontextmanager
@@ -66,7 +84,7 @@ def create_app(
             database.create_all()
         yield
 
-    app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title=settings.app_name, version="1.1.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.database = database
     app.state.generation_service = generation_service
@@ -84,10 +102,26 @@ def create_app(
     def health():
         return {
             "status": "ok",
+            "pipeline": {
+                "concept_count": settings.concept_count,
+                "selected_concept_count": settings.selected_concept_count,
+                "renders_per_concept": settings.renders_per_concept,
+                "render_count": settings.render_count,
+            },
             "providers": {
                 "gemini_creative_director": {
                     "configured": bool(settings.gemini_api_key),
                     "model": settings.gemini_concept_model,
+                },
+                "gemini_concept_ranker": {
+                    "configured": bool(settings.gemini_api_key),
+                    "enabled": settings.enable_concept_ranking,
+                    "model": settings.gemini_concept_model,
+                },
+                "gemini_cover_critic": {
+                    "configured": bool(settings.gemini_api_key),
+                    "enabled": settings.enable_cover_critic,
+                    "model": settings.gemini_critic_model,
                 },
                 "openai_images": {
                     "configured": bool(settings.openai_api_key),
