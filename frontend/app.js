@@ -203,6 +203,18 @@ function renderGeneration() {
     const covers = element("div", "covers");
     for (const variation of latestSet.variations) {
       const card = element("article", variation.selected ? "cover selected" : "cover");
+      const tier = variation.selection_tier || (
+        variation.id === latestSet.ai_winner_variation_id
+          ? "winner"
+          : variation.id === latestSet.ai_runner_up_variation_id
+            ? "runner_up"
+            : ""
+      );
+      if (tier === "winner") {
+        card.append(element("span", "status status-complete", "AI winner"));
+      } else if (tier === "runner_up") {
+        card.append(element("span", "status status-partial", "AI runner-up"));
+      }
       const image = document.createElement("img");
       image.src = variation.image_url;
       image.alt = `Album cover variation ${variation.position}`;
