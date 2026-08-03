@@ -32,19 +32,23 @@ class Database:
         self._apply_compatibility_columns()
 
     def _apply_compatibility_columns(self) -> None:
-        """Keep existing local SQLite installs bootable until users run Alembic."""
-        if self.engine.dialect.name != "sqlite":
-            return
+        """Bring an existing SQLite or PostgreSQL database up to the current runtime shape.
+
+        Alembic remains the canonical migration path, but Render deployments can start
+        against an older database before a release command has run. These idempotent
+        additions prevent request-time 500s while preserving existing data.
+        """
         inspector = inspect(self.engine)
         table_names = set(inspector.get_table_names())
         statements: list[str] = []
+        boolean_default = "FALSE" if self.engine.dialect.name == "postgresql" else "0"
 
         if "generations" in table_names:
             columns = {column["name"] for column in inspector.get_columns("generations")}
             additions = {
                 "title": "VARCHAR(200)",
                 "artist": "VARCHAR(200)",
-                "parental_advisory": "BOOLEAN NOT NULL DEFAULT 0",
+                "parental_advisory": f"BOOLEAN NOT NULL DEFAULT {boolean_default}",
             }
             statements.extend(
                 f"ALTER TABLE generations ADD COLUMN {name} {ddl}"
