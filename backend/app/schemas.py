@@ -21,6 +21,24 @@ class RegenerateRequest(BaseModel):
     run_async: bool = True
 
 
+class ConceptResponse(BaseModel):
+    id: str
+    ordinal: int
+    name: str
+    subject: str
+    setting: str
+    action_or_symbol: str
+    camera: str
+    medium: str
+    palette: str
+    typography_zone: str
+    image_prompt: str
+    scores: dict[str, Any] | None = None
+    total_score: float | None = None
+    rank: int | None = None
+    selected_for_render: bool = False
+
+
 class VariationResponse(BaseModel):
     id: str
     position: int
@@ -30,6 +48,16 @@ class VariationResponse(BaseModel):
     width: int
     height: int
     selected: bool
+    concept_id: str | None = None
+    concept_name: str | None = None
+    render_index: int | None = None
+    rank: int | None = None
+    selection_tier: str = "unranked"
+    cover_score: float | None = None
+    thumbnail_score: float | None = None
+    commercial_score: float | None = None
+    critic_feedback: dict[str, Any] | None = None
+    platform_scores: dict[str, Any] | None = None
     created_at: datetime
 
 
@@ -39,6 +67,13 @@ class VariationSetResponse(BaseModel):
     mood_path: str
     prompt: str
     requested_count: int
+    concept_count: int = 0
+    selected_concept_count: int = 0
+    renders_per_concept: int = 0
+    concepts: list[ConceptResponse] = []
+    winner_variation_id: str | None = None
+    runner_up_variation_id: str | None = None
+    critic_status: str = "pending"
     status: str
     error: dict[str, Any] | None
     created_at: datetime
