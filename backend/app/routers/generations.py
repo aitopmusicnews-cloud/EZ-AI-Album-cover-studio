@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Annotated
-
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -48,6 +46,7 @@ async def create_generation(
     clean_artist = sanitize_metadata_text(artist, field_name="Artist")
     if not audio_bytes and not combined_lyrics:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=422, detail="Upload an MP3, provide lyrics, or provide both.")
 
     svc = service(request)
@@ -130,6 +129,33 @@ async def regenerate(
         response.status_code = 202
     else:
         await svc.regenerate(generation_id, payload.variation_count, payload.mood_path)
+        response.status_code = 200
+    return generation_response(svc.get(db, generation_id))
+
+
+@router.post("/generations/{generation_id}/improve", response_model=GenerationResponse)
+async def generate_better(
+    generation_id: str,
+    payload: RegenerateRequest,
+    response: Response,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    svc = service(request)
+    svc.get(db, generation_id)
+    improve = getattr(svc, "generate_better", None)
+    if improve is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=409, detail="Generate Better is not enabled.")
+    if payload.run_async:
+        background_tasks.add_task(
+            improve, generation_id, payload.variation_count, payload.mood_path
+        )
+        response.status_code = 202
+    else:
+        await improve(generation_id, payload.variation_count, payload.mood_path)
         response.status_code = 200
     return generation_response(svc.get(db, generation_id))
 
