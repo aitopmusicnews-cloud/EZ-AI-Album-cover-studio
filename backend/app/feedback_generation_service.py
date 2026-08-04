@@ -56,16 +56,22 @@ class FeedbackDrivenGenerationService(MajorLabelGenerationService):
                 await self._create_and_fill_set(db, generation, variation_count, mood_path)
                 refreshed = self.get(db, generation.id)
                 created_set = max(refreshed.variation_sets, key=lambda item: item.set_number)
+                succeeded = created_set.status in {"complete", "partial"}
                 self._audit(
                     db,
                     generation.id,
                     "generate_better",
                     1,
-                    "succeeded",
-                    f"Created improved variation set {created_set.set_number} from critic feedback.",
+                    "succeeded" if succeeded else "failed",
+                    (
+                        f"Created improved variation set {created_set.set_number} from critic feedback."
+                        if succeeded
+                        else f"Improvement set {created_set.set_number} did not complete."
+                    ),
                     {
                         "source_variation_id": source_variation_id,
                         "created_variation_set_id": created_set.id,
+                        "created_variation_set_status": created_set.status,
                     },
                     created_set.id,
                 )
