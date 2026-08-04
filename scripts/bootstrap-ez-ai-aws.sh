@@ -75,15 +75,31 @@ MAIN_QUEUE_URL="$(
     --output text
 )"
 
-REDRIVE_POLICY="$(
-  python3 -c 'import json,sys; print(json.dumps({"deadLetterTargetArn":sys.argv[1],"maxReceiveCount":"3"}))' \
-  "$DLQ_ARN"
-)"
+export DLQ_ARN
+python3 - <<'PY'
+import json
+import os
+
+attributes = {
+    "VisibilityTimeout": "900",
+    "ReceiveMessageWaitTimeSeconds": "20",
+    "MessageRetentionPeriod": "345600",
+    "RedrivePolicy": json.dumps(
+        {
+            "deadLetterTargetArn": os.environ["DLQ_ARN"],
+            "maxReceiveCount": "3",
+        },
+        separators=(",", ":"),
+    ),
+}
+
+with open("/tmp/ez-ai-sqs-attributes.json", "w", encoding="utf-8") as file:
+    json.dump(attributes, file)
+PY
 
 aws sqs set-queue-attributes \
   --queue-url "$MAIN_QUEUE_URL" \
-  --attributes \
-    VisibilityTimeout=900,ReceiveMessageWaitTimeSeconds=20,MessageRetentionPeriod=345600,RedrivePolicy="$REDRIVE_POLICY"
+  --attributes file:///tmp/ez-ai-sqs-attributes.json
 
 cat > .aws-bootstrap.env <<EOF
 AWS_PROFILE=$AWS_PROFILE
