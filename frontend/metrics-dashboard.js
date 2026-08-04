@@ -1,11 +1,20 @@
 (() => {
   const root = document.querySelector("#metrics-dashboard");
+  let refreshInFlight = false;
 
   function node(tag, className = "", text = "") {
     const item = document.createElement(tag);
     if (className) item.className = className;
     if (text !== "") item.textContent = String(text);
     return item;
+  }
+
+  function collectionId() {
+    const existing = localStorage.getItem("album-cover-collection");
+    if (existing) return existing;
+    const created = crypto.randomUUID().replaceAll("-", "");
+    localStorage.setItem("album-cover-collection", created);
+    return created;
   }
 
   function formatScore(value) {
@@ -126,4 +135,24 @@
     body.append(operations, platforms, trend);
     root.append(body);
   };
+
+  window.refreshMetricsDashboard = async function refreshMetricsDashboard() {
+    if (!root || refreshInFlight || document.hidden) return;
+    refreshInFlight = true;
+    try {
+      const response = await fetch(`/api/collections/${collectionId()}/metrics`);
+      if (!response.ok) return;
+      window.renderMetricsDashboard(await response.json());
+    } catch (_error) {
+      // The main generation UI remains usable if metrics are temporarily unavailable.
+    } finally {
+      refreshInFlight = false;
+    }
+  };
+
+  window.refreshMetricsDashboard();
+  window.setInterval(window.refreshMetricsDashboard, 5000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) window.refreshMetricsDashboard();
+  });
 })();
