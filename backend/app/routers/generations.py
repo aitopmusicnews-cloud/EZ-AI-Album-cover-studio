@@ -16,6 +16,7 @@ from ..validation import read_lyrics_file, read_validated_mp3, sanitize_lyrics, 
 
 
 router = APIRouter(prefix="/api", tags=["album-covers"])
+_COMPLETED_STATUSES = {"complete", "partial", "needs_mood_choice"}
 
 
 def get_db(request: Request):
@@ -24,6 +25,38 @@ def get_db(request: Request):
 
 def service(request: Request):
     return request.app.state.generation_service
+
+
+def submit_async_job(
+    *,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    action: str,
+    generation_id: str,
+    variation_count: int = 4,
+    mood_path: str = "auto",
+    callback,
+    callback_args: tuple = (),
+) -> None:
+    queue = request.app.state.job_queue
+    if queue.enabled:
+        try:
+            queue.enqueue(
+                action=action,
+                generation_id=generation_id,
+                variation_count=variation_count,
+                mood_path=mood_path,
+            )
+        except Exception as exc:
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=503,
+                detail="The generation queue is temporarily unavailable. Please retry.",
+            ) from exc
+        return
+
+    background_tasks.add_task(callback, *callback_args)
 
 
 @router.post("/generations", response_model=GenerationResponse)
@@ -65,13 +98,34 @@ async def create_generation(
         artist=clean_artist,
         parental_advisory=parental_advisory,
     )
+
     if created.cache_hit:
-        response.status_code = 200
+        if created.generation.status not in _COMPLETED_STATUSES:
+            submit_async_job(
+                request=request,
+                background_tasks=background_tasks,
+                action="process",
+                generation_id=created.generation.id,
+                variation_count=variation_count,
+                mood_path=mood_path,
+                callback=svc.process_generation,
+                callback_args=(created.generation.id, variation_count, mood_path),
+            )
+            response.status_code = 202
+        else:
+            response.status_code = 200
         return generation_response(created.generation, cache_hit=True)
 
-    if run_async:
-        background_tasks.add_task(
-            svc.process_generation, created.generation.id, variation_count, mood_path
+    if request.app.state.job_queue.enabled or run_async:
+        submit_async_job(
+            request=request,
+            background_tasks=background_tasks,
+            action="process",
+            generation_id=created.generation.id,
+            variation_count=variation_count,
+            mood_path=mood_path,
+            callback=svc.process_generation,
+            callback_args=(created.generation.id, variation_count, mood_path),
         )
         response.status_code = 202
         return generation_response(created.generation)
@@ -114,9 +168,16 @@ async def generate_after_choice(
 ):
     svc = service(request)
     svc.get(db, generation_id)
-    if payload.run_async:
-        background_tasks.add_task(
-            svc.regenerate, generation_id, payload.variation_count, payload.mood_path
+    if request.app.state.job_queue.enabled or payload.run_async:
+        submit_async_job(
+            request=request,
+            background_tasks=background_tasks,
+            action="regenerate",
+            generation_id=generation_id,
+            variation_count=payload.variation_count,
+            mood_path=payload.mood_path,
+            callback=svc.regenerate,
+            callback_args=(generation_id, payload.variation_count, payload.mood_path),
         )
         response.status_code = 202
     else:
@@ -136,9 +197,16 @@ async def regenerate(
 ):
     svc = service(request)
     svc.get(db, generation_id)
-    if payload.run_async:
-        background_tasks.add_task(
-            svc.regenerate, generation_id, payload.variation_count, payload.mood_path
+    if request.app.state.job_queue.enabled or payload.run_async:
+        submit_async_job(
+            request=request,
+            background_tasks=background_tasks,
+            action="regenerate",
+            generation_id=generation_id,
+            variation_count=payload.variation_count,
+            mood_path=payload.mood_path,
+            callback=svc.regenerate,
+            callback_args=(generation_id, payload.variation_count, payload.mood_path),
         )
         response.status_code = 202
     else:
@@ -163,9 +231,16 @@ async def generate_better(
         from fastapi import HTTPException
 
         raise HTTPException(status_code=409, detail="Generate Better is not enabled.")
-    if payload.run_async:
-        background_tasks.add_task(
-            improve, generation_id, payload.variation_count, payload.mood_path
+    if request.app.state.job_queue.enabled or payload.run_async:
+        submit_async_job(
+            request=request,
+            background_tasks=background_tasks,
+            action="improve",
+            generation_id=generation_id,
+            variation_count=payload.variation_count,
+            mood_path=payload.mood_path,
+            callback=improve,
+            callback_args=(generation_id, payload.variation_count, payload.mood_path),
         )
         response.status_code = 202
     else:
@@ -185,8 +260,15 @@ async def retry_generation(
 ):
     svc = service(request)
     svc.get(db, generation_id)
-    if run_async:
-        background_tasks.add_task(svc.retry_failed, generation_id)
+    if request.app.state.job_queue.enabled or run_async:
+        submit_async_job(
+            request=request,
+            background_tasks=background_tasks,
+            action="retry",
+            generation_id=generation_id,
+            callback=svc.retry_failed,
+            callback_args=(generation_id,),
+        )
         response.status_code = 202
     else:
         await svc.retry_failed(generation_id)
