@@ -22,6 +22,7 @@ class FeedbackDrivenGenerationService(MajorLabelGenerationService):
         generation_id: str,
         variation_count: int = 4,
         mood_path: str = "blend",
+        user_instructions: str | None = None,
     ) -> None:
         with self.database.session_factory() as db:
             generation = self.get(db, generation_id)
@@ -30,11 +31,24 @@ class FeedbackDrivenGenerationService(MajorLabelGenerationService):
                 return
 
             source_set = self._latest_scored_set(generation)
-            if source_set is None:
-                await self._create_and_fill_set(db, generation, variation_count, mood_path)
-                return
+            source_variation_id = None
+            if source_set is not None:
+                context, source_variation_id = build_improvement_context(
+                    source_set,
+                    preferred_variation_id=generation.selected_variation_id,
+                )
+            else:
+                context = "Create a stronger follow-up with clearer hierarchy, better thumbnail recognition, and a premium commercial finish."
 
-            context, source_variation_id = build_improvement_context(source_set)
+            clean_user_instructions = (user_instructions or "").strip()
+            if clean_user_instructions:
+                context = (
+                    f"{context}\n\n"
+                    "USER-REQUESTED COVER EDITS — HIGHEST PRIORITY\n"
+                    f"{clean_user_instructions}\n"
+                    "Preserve any elements the user explicitly asks to keep. Change the requested elements clearly while producing new original variations."
+                )
+
             token = self._active_improvement_context.set(context)
             try:
                 self._audit(
@@ -43,15 +57,16 @@ class FeedbackDrivenGenerationService(MajorLabelGenerationService):
                     "generate_better",
                     1,
                     "started",
-                    "Starting a critic-guided improvement pass.",
+                    "Starting a user-directed cover edit pass." if clean_user_instructions else "Starting a critic-guided improvement pass.",
                     {
-                        "source_variation_set_id": source_set.id,
+                        "source_variation_set_id": source_set.id if source_set is not None else None,
                         "source_variation_id": source_variation_id,
                         "mood_path": mood_path,
                         "variation_count": variation_count,
+                        "user_instructions": clean_user_instructions or None,
                         "improvement_context": context,
                     },
-                    source_set.id,
+                    source_set.id if source_set is not None else None,
                 )
                 await self._create_and_fill_set(db, generation, variation_count, mood_path)
                 refreshed = self.get(db, generation.id)
@@ -63,15 +78,15 @@ class FeedbackDrivenGenerationService(MajorLabelGenerationService):
                     "generate_better",
                     1,
                     "succeeded" if succeeded else "failed",
-                    (
-                        f"Created improved variation set {created_set.set_number} from critic feedback."
-                        if succeeded
+                    f"Created edited variation set {created_set.set_number}." if clean_user_instructions and succeeded else (
+                        f"Created improved variation set {created_set.set_number} from critic feedback." if succeeded
                         else f"Improvement set {created_set.set_number} did not complete."
                     ),
                     {
                         "source_variation_id": source_variation_id,
                         "created_variation_set_id": created_set.id,
                         "created_variation_set_status": created_set.status,
+                        "user_instructions": clean_user_instructions or None,
                     },
                     created_set.id,
                 )

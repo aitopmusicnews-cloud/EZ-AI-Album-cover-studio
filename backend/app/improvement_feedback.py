@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 
-def build_improvement_context(variation_set: Any) -> tuple[str, str | None]:
+def build_improvement_context(variation_set: Any, preferred_variation_id: str | None = None) -> tuple[str, str | None]:
     """Build a focused refinement brief from the latest set's strongest cover.
 
     The function deliberately accepts simple attribute-based objects so it can be
@@ -17,8 +17,10 @@ def build_improvement_context(variation_set: Any) -> tuple[str, str | None]:
             None,
         )
 
+    winner = next((item for item in variations if preferred_variation_id and getattr(item, "id", None) == preferred_variation_id), None)
     winner_id = getattr(variation_set, "ai_winner_variation_id", None)
-    winner = next((item for item in variations if getattr(item, "id", None) == winner_id), None)
+    if winner is None:
+        winner = next((item for item in variations if getattr(item, "id", None) == winner_id), None)
     if winner is None:
         winner = min(
             variations,

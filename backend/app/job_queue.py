@@ -17,6 +17,7 @@ class GenerationJob:
     generation_id: str
     variation_count: int = 4
     mood_path: str = "auto"
+    user_instructions: str | None = None
 
     def __post_init__(self) -> None:
         if self.action not in _ALLOWED_ACTIONS:
@@ -27,6 +28,8 @@ class GenerationJob:
             raise ValueError("variation_count must be between 3 and 8")
         if self.mood_path not in _ALLOWED_MOOD_PATHS:
             raise ValueError(f"Unsupported mood path: {self.mood_path}")
+        if self.user_instructions and len(self.user_instructions) > 1000:
+            raise ValueError("user_instructions must be 1000 characters or fewer")
 
     def to_body(self) -> str:
         return json.dumps(
@@ -35,6 +38,7 @@ class GenerationJob:
                 "generation_id": self.generation_id,
                 "variation_count": self.variation_count,
                 "mood_path": self.mood_path,
+                "user_instructions": self.user_instructions,
             },
             separators=(",", ":"),
             sort_keys=True,
@@ -50,6 +54,7 @@ class GenerationJob:
             generation_id=str(payload.get("generation_id", "")),
             variation_count=int(payload.get("variation_count", 4)),
             mood_path=str(payload.get("mood_path", "auto")),
+            user_instructions=(str(payload.get("user_instructions", "")).strip() or None),
         )
 
 
@@ -76,6 +81,7 @@ class SQSGenerationQueue:
         generation_id: str,
         variation_count: int = 4,
         mood_path: str = "auto",
+        user_instructions: str | None = None,
     ) -> str:
         if not self.enabled:
             raise RuntimeError("SQS generation queue is not configured")
@@ -84,6 +90,7 @@ class SQSGenerationQueue:
             generation_id=generation_id,
             variation_count=variation_count,
             mood_path=mood_path,
+            user_instructions=user_instructions,
         )
         response = self.client.send_message(
             QueueUrl=self.queue_url,

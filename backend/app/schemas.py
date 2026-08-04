@@ -21,6 +21,10 @@ class RegenerateRequest(BaseModel):
     run_async: bool = True
 
 
+class ImproveRequest(RegenerateRequest):
+    user_instructions: str | None = Field(default=None, max_length=1000)
+
+
 class ConceptResponse(BaseModel):
     id: str
     ordinal: int

@@ -10,6 +10,7 @@ from ..schemas import (
     CollectionMetricsResponse,
     GenerationResponse,
     HistoryResponse,
+    ImproveRequest,
     RegenerateRequest,
 )
 from ..validation import read_lyrics_file, read_validated_mp3, sanitize_lyrics, sanitize_metadata_text
@@ -106,6 +107,7 @@ def submit_async_job(
     generation_id: str,
     variation_count: int = 4,
     mood_path: str = "auto",
+    user_instructions: str | None = None,
     callback,
     callback_args: tuple = (),
 ) -> None:
@@ -117,6 +119,7 @@ def submit_async_job(
                 generation_id=generation_id,
                 variation_count=variation_count,
                 mood_path=mood_path,
+                user_instructions=user_instructions,
             )
         except Exception as exc:
             from fastapi import HTTPException
@@ -146,6 +149,7 @@ async def create_generation(
     mood_direction: str | None = Form(default=None),
     visual_style: str | None = Form(default=None),
     color_direction: str | None = Form(default=None),
+    creative_idea: str | None = Form(default=None),
     parental_advisory: bool = Form(default=False),
     collection_id: str | None = Form(default=None),
     mood_path: str = Form(default="auto", pattern="^(auto|blend|audio|lyrics)$"),
@@ -191,6 +195,9 @@ async def create_generation(
         for key, value in creative_direction.items()
         if value not in {"Let AI decide", "Auto-detect from song"}
     }
+    clean_creative_idea = sanitize_metadata_text(creative_idea, field_name="Creative idea", max_chars=1000)
+    if clean_creative_idea:
+        creative_direction["creative_idea"] = clean_creative_idea
     if not audio_bytes and not combined_lyrics:
         from fastapi import HTTPException
 
@@ -327,7 +334,7 @@ async def regenerate(
 @router.post("/generations/{generation_id}/improve", response_model=GenerationResponse)
 async def generate_better(
     generation_id: str,
-    payload: RegenerateRequest,
+    payload: ImproveRequest,
     response: Response,
     background_tasks: BackgroundTasks,
     request: Request,
@@ -335,6 +342,7 @@ async def generate_better(
 ):
     svc = service(request)
     svc.get(db, generation_id)
+    user_instructions = sanitize_metadata_text(payload.user_instructions, field_name="Cover edit request", max_chars=1000)
     improve = getattr(svc, "generate_better", None)
     if improve is None:
         from fastapi import HTTPException
@@ -348,12 +356,13 @@ async def generate_better(
             generation_id=generation_id,
             variation_count=payload.variation_count,
             mood_path=payload.mood_path,
+            user_instructions=user_instructions,
             callback=improve,
-            callback_args=(generation_id, payload.variation_count, payload.mood_path),
+            callback_args=(generation_id, payload.variation_count, payload.mood_path, user_instructions),
         )
         response.status_code = 202
     else:
-        await improve(generation_id, payload.variation_count, payload.mood_path)
+        await improve(generation_id, payload.variation_count, payload.mood_path, user_instructions)
         response.status_code = 200
     return generation_response(svc.get(db, generation_id))
 

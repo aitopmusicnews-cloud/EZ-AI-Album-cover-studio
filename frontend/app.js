@@ -7,6 +7,7 @@ const state = {
   generation: null,
   busy: false,
   pollToken: 0,
+  editPrompt: "",
 };
 
 const form = document.querySelector("#generation-form");
@@ -59,6 +60,7 @@ async function submitGeneration(event) {
   const moodDirection = document.querySelector("#mood-direction").value;
   const visualStyle = document.querySelector("#visual-style").value;
   const colorDirection = document.querySelector("#color-direction").value;
+  const creativeIdea = document.querySelector("#creative-idea").value.trim();
   const parentalAdvisory = document.querySelector("#parental-advisory").checked;
   const count = Number(document.querySelector("#variation-count").value);
   if (!artistPresentation) return showError("Choose the artist presentation.");
@@ -77,6 +79,7 @@ async function submitGeneration(event) {
     data.set("mood_direction", moodDirection);
     data.set("visual_style", visualStyle);
     data.set("color_direction", colorDirection);
+    data.set("creative_idea", creativeIdea);
     data.set("parental_advisory", String(parentalAdvisory));
     data.set("variation_count", String(count));
     data.set("mood_path", "auto");
@@ -164,7 +167,7 @@ async function runPath(path, regenerate = false) {
   }
 }
 
-async function generateBetter() {
+async function generateBetter(userInstructions = "") {
   if (!state.generation) return;
   const previousSetCount = state.generation.variation_sets.length;
   const latestSet = state.generation.variation_sets[previousSetCount - 1];
@@ -179,8 +182,14 @@ async function generateBetter() {
     state.generation = await request(`/api/generations/${state.generation.id}/improve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mood_path: moodPath, variation_count: count, run_async: true }),
+      body: JSON.stringify({
+        mood_path: moodPath,
+        variation_count: count,
+        run_async: true,
+        user_instructions: userInstructions,
+      }),
     });
+    if (userInstructions) state.editPrompt = "";
     renderGeneration();
     await pollForNewSet(state.generation.id, previousSetCount);
   } catch (error) {
@@ -275,7 +284,7 @@ function renderGeneration() {
       const improve = element("button", "generate-better", "Generate Better");
       improve.disabled = state.busy;
       improve.title = "Create a new set using the AI critic's feedback on the current winner";
-      improve.addEventListener("click", generateBetter);
+      improve.addEventListener("click", () => generateBetter(""));
       actions.append(improve);
     }
     if (generation.has_audio && generation.has_lyrics) actions.append(regenerateButton("Fresh blend", "blend"));
@@ -283,6 +292,30 @@ function renderGeneration() {
     if (generation.has_lyrics) actions.append(regenerateButton("Fresh lyric path", "lyrics"));
     toolbar.append(actions);
     resultRoot.append(toolbar);
+
+    if (latestSet.variations.length) {
+      const editPanel = element("section", "cover-edit-panel");
+      editPanel.append(element("h3", "", "Request changes to the generated cover"));
+      editPanel.append(element("p", "field-note", "Select the cover closest to your idea, then describe what to keep and what to change. If no cover is selected, the AI winner is used."));
+      const editPrompt = document.createElement("textarea");
+      editPrompt.id = "cover-edit-prompt";
+      editPrompt.rows = 4;
+      editPrompt.maxLength = 1000;
+      editPrompt.placeholder = "Example: Keep the pose and lighting, change the outfit to a white suit, remove the car, and use warm gold tones.";
+      editPrompt.value = state.editPrompt;
+      editPrompt.addEventListener("input", event => { state.editPrompt = event.target.value; });
+      editPanel.append(editPrompt);
+      const editButton = element("button", "primary", "Generate edited covers");
+      editButton.type = "button";
+      editButton.disabled = state.busy;
+      editButton.addEventListener("click", () => {
+        const instructions = state.editPrompt.trim();
+        if (!instructions) return showError("Describe the changes you want for the next covers.");
+        generateBetter(instructions);
+      });
+      editPanel.append(editButton);
+      resultRoot.append(editPanel);
+    }
 
     const covers = element("div", "covers");
     for (const variation of latestSet.variations) {

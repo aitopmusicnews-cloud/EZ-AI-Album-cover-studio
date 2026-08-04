@@ -65,6 +65,7 @@ async def dispatch_job(service, job: GenerationJob) -> None:
             job.generation_id,
             job.variation_count,
             job.mood_path,
+            job.user_instructions,
         )
         return
 
