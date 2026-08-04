@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from .commercial_benchmarking import benchmark_cover
+
 
 @dataclass(frozen=True, slots=True)
 class MarketPositioning:
@@ -71,7 +73,7 @@ def position_cover(
         1,
     )
 
-    return MarketPositioning(
+    positioning = MarketPositioning(
         lane=lane,
         target_audience=target_audience,
         release_signal=release_signal,
@@ -79,6 +81,12 @@ def position_cover(
         differentiation=differentiation,
         confidence=confidence,
     ).as_dict()
+    positioning["commercial_benchmark"] = benchmark_cover(
+        critic_scores=scores,
+        platform_scores=platforms,
+        market_lane=lane,
+    )
+    return positioning
 
 
 def _score(scores: dict[str, Any], key: str, default: float) -> float:
