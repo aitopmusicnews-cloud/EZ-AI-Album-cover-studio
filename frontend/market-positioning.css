@@ -1,0 +1,26 @@
+.cover-market {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(215, 122, 36, .10), rgba(157, 161, 159, .06));
+}
+
+.cover-market strong {
+  color: var(--copper-bright);
+  font-size: .86rem;
+}
+
+.cover-market span {
+  color: var(--text);
+  font-size: .76rem;
+  line-height: 1.4;
+}
+
+.cover-market small {
+  color: var(--muted);
+  font-size: .7rem;
+  line-height: 1.4;
+}
