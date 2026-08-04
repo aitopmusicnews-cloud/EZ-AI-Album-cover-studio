@@ -58,6 +58,7 @@ class VariationResponse(BaseModel):
     commercial_score: float | None = None
     critic_feedback: dict[str, Any] | None = None
     platform_scores: dict[str, Any] | None = None
+    market_positioning: dict[str, Any] | None = None
     created_at: datetime
 
 
