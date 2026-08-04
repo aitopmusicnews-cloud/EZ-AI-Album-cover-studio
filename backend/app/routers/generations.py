@@ -4,8 +4,14 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, Re
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from ..metrics import collection_metrics
 from ..presentation import generation_response
-from ..schemas import GenerationResponse, HistoryResponse, RegenerateRequest
+from ..schemas import (
+    CollectionMetricsResponse,
+    GenerationResponse,
+    HistoryResponse,
+    RegenerateRequest,
+)
 from ..validation import read_lyrics_file, read_validated_mp3, sanitize_lyrics, sanitize_metadata_text
 
 
@@ -87,6 +93,14 @@ def get_history(collection_id: str, request: Request, db: Session = Depends(get_
         collection_id=collection_id,
         versions=[generation_response(item, include_audit=False) for item in versions],
     )
+
+
+@router.get(
+    "/collections/{collection_id}/metrics",
+    response_model=CollectionMetricsResponse,
+)
+def get_metrics(collection_id: str, db: Session = Depends(get_db)):
+    return CollectionMetricsResponse(**collection_metrics(db, collection_id))
 
 
 @router.post("/generations/{generation_id}/generate", response_model=GenerationResponse)
