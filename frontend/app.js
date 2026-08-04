@@ -219,6 +219,16 @@ function renderGeneration() {
       image.src = variation.image_url;
       image.alt = `Album cover variation ${variation.position}`;
       card.append(image);
+
+      const positioning = variation.market_positioning;
+      if (positioning) {
+        const market = element("div", "cover-market");
+        market.append(element("strong", "", positioning.lane || "Market position"));
+        if (positioning.release_signal) market.append(element("span", "", positioning.release_signal));
+        if (positioning.target_audience) market.append(element("small", "", positioning.target_audience));
+        card.append(market);
+      }
+
       const actions = element("div", "cover-actions");
       const select = element("button", "", variation.selected ? "Selected" : "Select");
       select.addEventListener("click", () => selectVariation(variation.id));
