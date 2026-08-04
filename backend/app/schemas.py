@@ -118,6 +118,40 @@ class HistoryResponse(BaseModel):
     versions: list[GenerationResponse]
 
 
+class MetricsTrendPoint(BaseModel):
+    version: int
+    set_number: int
+    average_score: float | None = None
+    winner_score: float | None = None
+    created_at: datetime
+
+
+class CollectionMetricsResponse(BaseModel):
+    collection_id: str
+    versions: int
+    variation_sets: int
+    covers_generated: int
+    scored_covers: int
+    selected_covers: int
+    successful_versions: int
+    failed_versions: int
+    success_rate: float
+    critic_completion_rate: float
+    average_cover_score: float | None = None
+    average_thumbnail_score: float | None = None
+    average_commercial_score: float | None = None
+    best_cover_score: float | None = None
+    release_ready_covers: int
+    retries: int
+    failed_steps: int
+    cache_hits: int
+    status_counts: dict[str, int] = Field(default_factory=dict)
+    set_status_counts: dict[str, int] = Field(default_factory=dict)
+    platform_averages: dict[str, float] = Field(default_factory=dict)
+    quality_trend: list[MetricsTrendPoint] = Field(default_factory=list)
+    latest_update: datetime | None = None
+
+
 class ErrorResponse(BaseModel):
     detail: str
     code: str
