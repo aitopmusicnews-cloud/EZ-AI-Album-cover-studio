@@ -96,6 +96,30 @@ async function poll(id) {
   }
 }
 
+async function pollForNewSet(id, previousSetCount) {
+  const token = ++state.pollToken;
+  let newSetSeen = false;
+  while (token === state.pollToken) {
+    try {
+      const generation = await request(`/api/generations/${id}`);
+      if (token !== state.pollToken) return;
+      state.generation = generation;
+      newSetSeen = newSetSeen || generation.variation_sets.length > previousSetCount;
+      renderGeneration();
+      if (newSetSeen && terminalStatuses.has(generation.status)) {
+        setBusy(false);
+        await refreshHistory();
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    } catch (error) {
+      setBusy(false);
+      showError(error.message);
+      return;
+    }
+  }
+}
+
 async function runPath(path, regenerate = false) {
   if (!state.generation) return;
   setBusy(true);
@@ -110,6 +134,31 @@ async function runPath(path, regenerate = false) {
     });
     renderGeneration();
     await poll(state.generation.id);
+  } catch (error) {
+    setBusy(false);
+    showError(error.message);
+  }
+}
+
+async function generateBetter() {
+  if (!state.generation) return;
+  const previousSetCount = state.generation.variation_sets.length;
+  const latestSet = state.generation.variation_sets[previousSetCount - 1];
+  const moodPath = ["blend", "audio", "lyrics"].includes(latestSet?.mood_path)
+    ? latestSet.mood_path
+    : "blend";
+  const count = Number(document.querySelector("#variation-count").value);
+
+  setBusy(true);
+  clearError();
+  try {
+    state.generation = await request(`/api/generations/${state.generation.id}/improve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mood_path: moodPath, variation_count: count, run_async: true }),
+    });
+    renderGeneration();
+    await pollForNewSet(state.generation.id, previousSetCount);
   } catch (error) {
     setBusy(false);
     showError(error.message);
@@ -194,6 +243,17 @@ function renderGeneration() {
     label.append(element("strong", "", `${latestSet.mood_path}-driven`));
     toolbar.append(label);
     const actions = element("div", "toolbar-actions");
+    const hasWinner = Boolean(
+      latestSet.winner_variation_id ||
+      latestSet.variations.some(variation => variation.selection_tier === "winner")
+    );
+    if (hasWinner && latestSet.critic_status !== "failed") {
+      const improve = element("button", "generate-better", "Generate Better");
+      improve.disabled = state.busy;
+      improve.title = "Create a new set using the AI critic's feedback on the current winner";
+      improve.addEventListener("click", generateBetter);
+      actions.append(improve);
+    }
     if (generation.has_audio && generation.has_lyrics) actions.append(regenerateButton("Fresh blend", "blend"));
     if (generation.has_audio) actions.append(regenerateButton("Fresh audio path", "audio"));
     if (generation.has_lyrics) actions.append(regenerateButton("Fresh lyric path", "lyrics"));
@@ -204,9 +264,9 @@ function renderGeneration() {
     for (const variation of latestSet.variations) {
       const card = element("article", variation.selected ? "cover selected" : "cover");
       const tier = variation.selection_tier || (
-        variation.id === latestSet.ai_winner_variation_id
+        variation.id === latestSet.winner_variation_id
           ? "winner"
-          : variation.id === latestSet.ai_runner_up_variation_id
+          : variation.id === latestSet.runner_up_variation_id
             ? "runner_up"
             : ""
       );
