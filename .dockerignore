@@ -1,0 +1,16 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.venv
+venv
+data
+load-results
+node_modules
+.DS_Store
+.aws-bootstrap.env
