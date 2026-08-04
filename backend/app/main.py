@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,9 +13,9 @@ from .config import Settings
 from .cover_critic import GeminiCoverCritic
 from .creative_director import GeminiCreativeDirector
 from .database import create_database
+from .feedback_generation_service import FeedbackDrivenGenerationService
 from .image_client import OpenAIImageClient
 from .lyrics_analysis import LyricsAnalyzer
-from .major_label_service import MajorLabelGenerationService
 from .routers.generations import router
 from .storage import LocalStorage
 
@@ -66,7 +66,7 @@ def create_app(
         timeout_seconds=min(settings.openai_timeout_seconds, 120),
         enabled=settings.enable_cover_critic,
     )
-    generation_service = MajorLabelGenerationService(
+    generation_service = FeedbackDrivenGenerationService(
         settings=settings,
         database=database,
         storage=storage,
@@ -80,12 +80,10 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        # Always run the idempotent schema check before accepting requests. This
-        # protects Render deployments when the database predates the latest code.
         database.create_all()
         yield
 
-    app = FastAPI(title=settings.app_name, version="1.1.1", lifespan=lifespan)
+    app = FastAPI(title=settings.app_name, version="1.2.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.database = database
     app.state.generation_service = generation_service
@@ -108,6 +106,7 @@ def create_app(
                 "selected_concept_count": settings.selected_concept_count,
                 "renders_per_concept": settings.renders_per_concept,
                 "render_count": settings.render_count,
+                "generate_better": True,
             },
             "providers": {
                 "gemini_creative_director": {
