@@ -69,6 +69,15 @@ class Settings:
         default_factory=lambda: _env_int("AUDIO_ANALYSIS_MAX_SECONDS", 180)
     )
 
+    aws_region: str = field(default_factory=lambda: os.getenv("AWS_REGION", "us-west-2"))
+    sqs_queue_url: str | None = field(default_factory=lambda: os.getenv("SQS_QUEUE_URL"))
+    sqs_visibility_timeout_seconds: int = field(
+        default_factory=lambda: _env_int("SQS_VISIBILITY_TIMEOUT_SECONDS", 900)
+    )
+    sqs_visibility_heartbeat_seconds: int = field(
+        default_factory=lambda: _env_int("SQS_VISIBILITY_HEARTBEAT_SECONDS", 240)
+    )
+
     openai_api_key: str | None = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     openai_image_model: str = field(
         default_factory=lambda: os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-2")
@@ -146,6 +155,12 @@ class Settings:
             raise ValueError("RENDERS_PER_CONCEPT must be at least 1")
         if self.max_parallel_renders < 1:
             raise ValueError("MAX_PARALLEL_RENDERS must be at least 1")
+        if self.sqs_visibility_timeout_seconds < 60:
+            raise ValueError("SQS_VISIBILITY_TIMEOUT_SECONDS must be at least 60")
+        if not 5 <= self.sqs_visibility_heartbeat_seconds < self.sqs_visibility_timeout_seconds:
+            raise ValueError(
+                "SQS_VISIBILITY_HEARTBEAT_SECONDS must be at least 5 and lower than the visibility timeout"
+            )
 
     @property
     def render_count(self) -> int:
