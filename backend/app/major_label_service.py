@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from PIL import Image, ImageFilter, ImageOps, ImageStat
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageStat
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -78,16 +78,38 @@ class MajorLabelGenerationService(GenerationService):
         )
         creative_direction = analysis.get("creative_direction") or {}
         if isinstance(creative_direction, dict) and creative_direction:
-            direction_text = "; ".join(
-                f"{key.replace('_', ' ')} = {value}"
+            brand_lock = creative_direction.get("brand_lock")
+            regular_direction = {
+                key: value
                 for key, value in creative_direction.items()
-                if value
-            )
-            brief = (
-                f"{brief} USER-SELECTED CREATIVE DIRECTION: {direction_text}. "
-                "Treat these choices as firm art-direction preferences while keeping "
-                "the result commercially credible, song-specific, and non-stereotypical."
-            )
+                if key != "brand_lock" and value
+            }
+
+            if regular_direction:
+                direction_text = "; ".join(
+                    f"{key.replace('_', ' ')} = {value}"
+                    for key, value in regular_direction.items()
+                )
+                brief = (
+                    f"{brief} USER-SELECTED CREATIVE DIRECTION: {direction_text}. "
+                    "Treat these choices as firm art-direction preferences while keeping "
+                    "the result commercially credible, song-specific, and non-stereotypical."
+                )
+
+            if isinstance(brand_lock, dict) and brand_lock:
+                lock_text = "; ".join(
+                    f"{key.replace('_', ' ')} = {value}"
+                    for key, value in brand_lock.items()
+                    if value
+                )
+                brief = (
+                    f"{brief} BRAND / STYLE LOCK — NON-NEGOTIABLE SERIES IDENTITY: "
+                    f"{lock_text}. Preserve this visual identity across every cover in "
+                    "the EP, album, or single series. Subjects and song-specific stories "
+                    "may change, but the aesthetic language, palette family, finish, "
+                    "lighting character, texture, and recurring signature details must "
+                    "remain visibly related."
+                )
         concepts = await self._plan_concepts(db, generation, signal, brief, seed)
         ranking: ConceptRankingResult = await self.concept_ranker.rank(
             concepts=concepts,
@@ -364,8 +386,25 @@ class MajorLabelGenerationService(GenerationService):
         position: int,
         typography_style: str,
     ) -> bytes:
-        """Place exact release text in the concept's reserved or cleanest image region."""
-        if not generation.title and not generation.artist and not generation.parental_advisory:
+        # Apply the locked finish before crisp typography is composited.
+        creative_direction = (generation.analysis_json or {}).get("creative_direction") or {}
+        brand_lock = (
+            creative_direction.get("brand_lock")
+            if isinstance(creative_direction, dict)
+            else None
+        )
+        brand_finish = (
+            brand_lock.get("finish")
+            if isinstance(brand_lock, dict)
+            else None
+        )
+
+        if (
+            not generation.title
+            and not generation.artist
+            and not generation.parental_advisory
+            and not brand_finish
+        ):
             return raw
 
         with Image.open(BytesIO(raw)) as source:
@@ -374,18 +413,80 @@ class MajorLabelGenerationService(GenerationService):
                 (1000, 1000),
                 method=Image.Resampling.LANCZOS,
             )
-        layout = self._typography_layout(image, concept.typography_zone, position)
-        composed = self.storage._apply_release_text(
-            image,
-            title=generation.title,
-            artist=generation.artist,
-            parental_advisory=bool(generation.parental_advisory),
-            position=layout,
-            typography_style=typography_style,
-        )
+
+        if brand_finish:
+            image = self._apply_brand_finish(image, brand_finish)
+
+        if generation.title or generation.artist or generation.parental_advisory:
+            layout = self._typography_layout(image, concept.typography_zone, position)
+            composed = self.storage._apply_release_text(
+                image,
+                title=generation.title,
+                artist=generation.artist,
+                parental_advisory=bool(generation.parental_advisory),
+                position=layout,
+                typography_style=typography_style,
+            )
+        else:
+            composed = image
+
         output = BytesIO()
         composed.save(output, format="PNG", optimize=True)
         return output.getvalue()
+
+    @staticmethod
+    def _apply_brand_finish(image: Image.Image, finish: str) -> Image.Image:
+        # Repeatable series finish applied before title and artist text.
+        value = " ".join((finish or "").lower().split())
+        base = image.convert("RGB")
+
+        if value == "warm film":
+            warmed = Image.blend(
+                base,
+                Image.new("RGB", base.size, (244, 176, 112)),
+                0.08,
+            )
+            warmed = ImageEnhance.Color(warmed).enhance(0.94)
+            return ImageEnhance.Contrast(warmed).enhance(0.98)
+
+        if value == "cool cinematic":
+            cooled = Image.blend(
+                base,
+                Image.new("RGB", base.size, (78, 116, 166)),
+                0.07,
+            )
+            cooled = ImageEnhance.Color(cooled).enhance(0.92)
+            return ImageEnhance.Contrast(cooled).enhance(1.08)
+
+        if value == "vintage print":
+            gray = ImageOps.grayscale(base)
+            sepia = ImageOps.colorize(gray, "#34251d", "#ead9b7")
+            printed = Image.blend(base, sepia, 0.34)
+            printed = ImageEnhance.Color(printed).enhance(0.82)
+            return ImageEnhance.Contrast(printed).enhance(0.96)
+
+        if value == "high contrast":
+            contrasted = ImageEnhance.Contrast(base).enhance(1.2)
+            return ImageEnhance.Color(contrasted).enhance(1.06)
+
+        if value == "soft glow":
+            glow = base.filter(ImageFilter.GaussianBlur(radius=7))
+            softened = Image.blend(base, glow, 0.22)
+            return ImageEnhance.Brightness(softened).enhance(1.03)
+
+        if value == "black and white":
+            monochrome = ImageOps.grayscale(base).convert("RGB")
+            return ImageEnhance.Contrast(monochrome).enhance(1.1)
+
+        if value == "grainy documentary":
+            documentary = ImageEnhance.Color(base).enhance(0.72)
+            documentary = ImageEnhance.Contrast(documentary).enhance(1.13)
+            noise = Image.effect_noise(base.size, 14).convert("RGB")
+            return Image.blend(documentary, noise, 0.055)
+
+        clean = ImageEnhance.Contrast(base).enhance(1.045)
+        clean = ImageEnhance.Color(clean).enhance(1.02)
+        return ImageEnhance.Sharpness(clean).enhance(1.08)
 
     @classmethod
     def _typography_layout(cls, image: Image.Image, requested_zone: str | None, fallback: int) -> int:

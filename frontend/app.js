@@ -8,6 +8,7 @@ const state = {
   busy: false,
   pollToken: 0,
   editPrompt: "",
+  brandLock: null,
 };
 
 const form = document.querySelector("#generation-form");
@@ -15,8 +16,20 @@ const submitButton = document.querySelector("#submit-button");
 const formError = document.querySelector("#form-error");
 const resultRoot = document.querySelector("#result");
 const historyRoot = document.querySelector("#history");
+const brandLockEnabled = document.querySelector("#brand-lock-enabled");
+const brandLockOptions = document.querySelector("#brand-lock-options");
+const brandLockName = document.querySelector("#brand-lock-name");
+const brandAesthetic = document.querySelector("#brand-aesthetic");
+const brandPalette = document.querySelector("#brand-palette");
+const brandCustomPalette = document.querySelector("#brand-custom-palette");
+const brandFinish = document.querySelector("#brand-finish");
+const brandSignature = document.querySelector("#brand-signature");
+const brandLockSave = document.querySelector("#brand-lock-save");
+const brandLockClear = document.querySelector("#brand-lock-clear");
+const brandLockStatus = document.querySelector("#brand-lock-status");
 document.querySelector("#collection-label").textContent = `Audit collection: ${state.collectionId.slice(0, 12)}…`;
 
+initializeBrandLock();
 form.addEventListener("submit", submitGeneration);
 refreshHistory().catch(() => undefined);
 
@@ -41,6 +54,112 @@ function getCollectionId() {
   return created;
 }
 
+const BRAND_LOCK_STORAGE_KEY = "album-cover-brand-lock-v1";
+
+function loadBrandLock() {
+  try {
+    const raw = localStorage.getItem(BRAND_LOCK_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function initializeBrandLock() {
+  const saved = loadBrandLock();
+  if (saved) {
+    applyBrandLock(saved);
+    state.brandLock = saved;
+  } else {
+    updateBrandLockVisibility();
+  }
+
+  brandLockEnabled.addEventListener("change", updateBrandLockVisibility);
+  brandLockSave.addEventListener("click", () => {
+    const lock = readBrandLockFromForm();
+    if (!lock) return showError("Turn on Brand / Style Lock before saving.");
+    persistBrandLock(lock);
+    clearError();
+  });
+  brandLockClear.addEventListener("click", clearBrandLock);
+}
+
+function updateBrandLockVisibility() {
+  brandLockOptions.classList.toggle("hidden", !brandLockEnabled.checked);
+}
+
+function applyBrandLock(lock) {
+  brandLockEnabled.checked = true;
+  brandLockName.value = lock.name || "";
+  brandAesthetic.value = lock.aestheticSource || lock.aesthetic || "Use Visual Style above";
+  brandPalette.value = lock.paletteSource || "Use Color Direction above";
+  brandCustomPalette.value = lock.customPalette || "";
+  brandFinish.value = lock.finish || "Clean editorial";
+  brandSignature.value = lock.signature || "";
+  updateBrandLockVisibility();
+  updateBrandLockStatus(lock);
+}
+
+function readBrandLockFromForm() {
+  if (!brandLockEnabled.checked) return null;
+
+  const visualStyle = document.querySelector("#visual-style").value;
+  const colorDirection = document.querySelector("#color-direction").value;
+  const aestheticSource = brandAesthetic.value;
+  const paletteSource = brandPalette.value;
+  const customPalette = brandCustomPalette.value.trim();
+
+  const aesthetic = aestheticSource === "Use Visual Style above"
+    ? visualStyle
+    : aestheticSource;
+
+  let palette = paletteSource === "Use Color Direction above"
+    ? colorDirection
+    : paletteSource;
+
+  if (paletteSource === "Custom palette") {
+    palette = customPalette || colorDirection;
+  }
+
+  return {
+    name: brandLockName.value.trim(),
+    aesthetic,
+    aestheticSource,
+    palette,
+    paletteSource,
+    customPalette,
+    finish: brandFinish.value,
+    signature: brandSignature.value.trim(),
+  };
+}
+
+function persistBrandLock(lock) {
+  localStorage.setItem(BRAND_LOCK_STORAGE_KEY, JSON.stringify(lock));
+  state.brandLock = lock;
+  updateBrandLockStatus(lock);
+}
+
+function updateBrandLockStatus(lock) {
+  const label = lock?.name || "Unnamed series";
+  brandLockStatus.textContent = `Active brand lock: ${label} · ${lock.aesthetic} · ${lock.palette} · ${lock.finish}`;
+}
+
+function clearBrandLock() {
+  localStorage.removeItem(BRAND_LOCK_STORAGE_KEY);
+  state.brandLock = null;
+  brandLockEnabled.checked = false;
+  brandLockName.value = "";
+  brandAesthetic.value = "Use Visual Style above";
+  brandPalette.value = "Use Color Direction above";
+  brandCustomPalette.value = "";
+  brandFinish.value = "Clean editorial";
+  brandSignature.value = "";
+  brandLockStatus.textContent = "No brand lock saved.";
+  updateBrandLockVisibility();
+  clearError();
+}
+
 async function request(url, options = {}) {
   const response = await fetch(url, options);
   const body = await response.json().catch(() => ({}));
@@ -61,10 +180,12 @@ async function submitGeneration(event) {
   const visualStyle = document.querySelector("#visual-style").value;
   const colorDirection = document.querySelector("#color-direction").value;
   const creativeIdea = document.querySelector("#creative-idea").value.trim();
+  const brandLock = readBrandLockFromForm();
   const parentalAdvisory = document.querySelector("#parental-advisory").checked;
   const count = Number(document.querySelector("#variation-count").value);
   if (!artistPresentation) return showError("Choose the artist presentation.");
   if (!audio && !lyricsFile && !lyricsText) return showError("Add an MP3, lyrics, or both.");
+  if (brandLock) persistBrandLock(brandLock);
 
   setBusy(true);
   clearError();
@@ -80,6 +201,14 @@ async function submitGeneration(event) {
     data.set("visual_style", visualStyle);
     data.set("color_direction", colorDirection);
     data.set("creative_idea", creativeIdea);
+    data.set("brand_lock_enabled", String(Boolean(brandLock)));
+    if (brandLock) {
+      data.set("brand_lock_name", brandLock.name);
+      data.set("brand_aesthetic", brandLock.aesthetic);
+      data.set("brand_palette", brandLock.palette);
+      data.set("brand_finish", brandLock.finish);
+      data.set("brand_signature", brandLock.signature);
+    }
     data.set("parental_advisory", String(parentalAdvisory));
     data.set("variation_count", String(count));
     data.set("mood_path", "auto");
@@ -242,6 +371,10 @@ function renderGeneration() {
   const releaseMeta = element("div", "release-summary");
   if (generation.title) releaseMeta.append(metaChip("Title", generation.title));
   if (generation.artist) releaseMeta.append(metaChip("Artist", generation.artist));
+  const activeBrandLock = generation.analysis?.creative_direction?.brand_lock;
+  if (activeBrandLock) {
+    releaseMeta.append(metaChip("Brand lock", activeBrandLock.name || "Active"));
+  }
   if (generation.parental_advisory) releaseMeta.append(metaChip("Label", "Parental Advisory"));
   if (releaseMeta.childElementCount) resultRoot.append(releaseMeta);
 

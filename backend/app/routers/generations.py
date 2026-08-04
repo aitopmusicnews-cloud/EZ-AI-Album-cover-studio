@@ -18,6 +18,16 @@ from ..validation import read_lyrics_file, read_validated_mp3, sanitize_lyrics, 
 
 router = APIRouter(prefix="/api", tags=["album-covers"])
 _COMPLETED_STATUSES = {"complete", "partial", "needs_mood_choice"}
+_BRAND_FINISH_ALLOWED = {
+    "Clean editorial",
+    "Warm film",
+    "Cool cinematic",
+    "Vintage print",
+    "High contrast",
+    "Soft glow",
+    "Black and white",
+    "Grainy documentary",
+}
 
 _CREATIVE_DIRECTION_ALLOWED = {
     "artist_presentation": {
@@ -150,6 +160,12 @@ async def create_generation(
     visual_style: str | None = Form(default=None),
     color_direction: str | None = Form(default=None),
     creative_idea: str | None = Form(default=None),
+    brand_lock_enabled: bool = Form(default=False),
+    brand_lock_name: str | None = Form(default=None),
+    brand_aesthetic: str | None = Form(default=None),
+    brand_palette: str | None = Form(default=None),
+    brand_finish: str | None = Form(default=None),
+    brand_signature: str | None = Form(default=None),
     parental_advisory: bool = Form(default=False),
     collection_id: str | None = Form(default=None),
     mood_path: str = Form(default="auto", pattern="^(auto|blend|audio|lyrics)$"),
@@ -198,6 +214,45 @@ async def create_generation(
     clean_creative_idea = sanitize_metadata_text(creative_idea, field_name="Creative idea", max_chars=1000)
     if clean_creative_idea:
         creative_direction["creative_idea"] = clean_creative_idea
+
+    if brand_lock_enabled:
+        clean_brand_finish = sanitize_metadata_text(
+            brand_finish,
+            field_name="Brand finish",
+            max_chars=80,
+        ) or "Clean editorial"
+        if clean_brand_finish not in _BRAND_FINISH_ALLOWED:
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=422, detail="Invalid brand finish.")
+
+        brand_lock = {
+            "name": sanitize_metadata_text(
+                brand_lock_name,
+                field_name="Brand lock name",
+                max_chars=100,
+            ),
+            "aesthetic": sanitize_metadata_text(
+                brand_aesthetic,
+                field_name="Brand aesthetic",
+                max_chars=120,
+            ),
+            "palette": sanitize_metadata_text(
+                brand_palette,
+                field_name="Brand palette",
+                max_chars=160,
+            ),
+            "finish": clean_brand_finish,
+            "signature": sanitize_metadata_text(
+                brand_signature,
+                field_name="Brand signature",
+                max_chars=500,
+            ),
+        }
+        creative_direction["brand_lock"] = {
+            key: value for key, value in brand_lock.items() if value
+        }
+
     if not audio_bytes and not combined_lyrics:
         from fastapi import HTTPException
 

@@ -112,6 +112,79 @@
           <textarea id="creative-idea" rows="4" maxlength="1000" placeholder="Optional: Describe your idea, setting, wardrobe, symbol, pose, or anything the cover should include or avoid."></textarea>
         </label>
         <p class="field-note">Example: “Female artist in an elegant red suit, dramatic theater lighting, no cars, leave clean space for the title.”</p>
+
+        <fieldset class="brand-lock-panel">
+          <legend>Brand / Style Lock</legend>
+          <label class="checkbox-row">
+            <input id="brand-lock-enabled" type="checkbox" />
+            <span>Lock one visual identity across this EP, album, or single series</span>
+          </label>
+
+          <div id="brand-lock-options" class="brand-lock-options hidden">
+            <div class="release-fields">
+              <label>Project or series name
+                <input id="brand-lock-name" type="text" maxlength="100" autocomplete="off" placeholder="e.g. Midnight Drive EP" />
+              </label>
+
+              <label>Locked visual aesthetic
+                <select id="brand-aesthetic">
+                  <option selected>Use Visual Style above</option>
+                  <option>Luxury editorial</option>
+                  <option>Cinematic noir</option>
+                  <option>Gritty documentary</option>
+                  <option>Minimal modern</option>
+                  <option>Retro analog</option>
+                  <option>Dreamy ethereal</option>
+                  <option>Bold graphic</option>
+                  <option>Organic natural</option>
+                  <option>Futuristic chrome</option>
+                </select>
+              </label>
+
+              <label>Locked color palette
+                <select id="brand-palette">
+                  <option selected>Use Color Direction above</option>
+                  <option>Black, gold, and cream</option>
+                  <option>Burgundy, blush, and cream</option>
+                  <option>Midnight blue and silver</option>
+                  <option>Earth tones and warm neutrals</option>
+                  <option>Dark neon</option>
+                  <option>Soft pastels</option>
+                  <option>Monochrome</option>
+                  <option>Custom palette</option>
+                </select>
+              </label>
+
+              <label>Custom palette
+                <input id="brand-custom-palette" type="text" maxlength="160" autocomplete="off" placeholder="e.g. cobalt blue, silver, black" />
+              </label>
+
+              <label>Locked finish / filter
+                <select id="brand-finish">
+                  <option selected>Clean editorial</option>
+                  <option>Warm film</option>
+                  <option>Cool cinematic</option>
+                  <option>Vintage print</option>
+                  <option>High contrast</option>
+                  <option>Soft glow</option>
+                  <option>Black and white</option>
+                  <option>Grainy documentary</option>
+                </select>
+              </label>
+            </div>
+
+            <label>Recurring signature details
+              <textarea id="brand-signature" rows="3" maxlength="500" placeholder="Optional: recurring lighting, border, wardrobe, symbol, framing, or texture."></textarea>
+            </label>
+
+            <div class="brand-lock-actions">
+              <button id="brand-lock-save" type="button">Save brand lock</button>
+              <button id="brand-lock-clear" type="button">Clear lock</button>
+            </div>
+            <p id="brand-lock-status" class="field-note">No brand lock saved.</p>
+          </div>
+        </fieldset>
+
         <label class="checkbox-row"><input id="parental-advisory" type="checkbox" /><span>Add Parental Advisory — Explicit Content label</span></label>
         <p class="field-note">Title, artist, and advisory are added after AI generation so the final wording is exact rather than AI-garbled.</p>
         <label>MP3 audio<input id="audio" type="file" accept="audio/mpeg,.mp3" /></label>

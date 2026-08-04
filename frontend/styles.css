@@ -365,3 +365,36 @@ button.primary:hover { background: linear-gradient(135deg, #ffc083, var(--copper
   resize: vertical;
 }
 
+.brand-lock-panel {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid rgba(215, 122, 36, 0.42);
+  border-radius: 14px;
+  background: rgba(215, 122, 36, 0.06);
+}
+
+.brand-lock-panel legend {
+  padding: 0 0.45rem;
+  font-weight: 800;
+}
+
+.brand-lock-options {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+.brand-lock-options.hidden {
+  display: none;
+}
+
+.brand-lock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.brand-lock-actions button {
+  width: auto;
+}
+
