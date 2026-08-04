@@ -76,6 +76,18 @@ class MajorLabelGenerationService(GenerationService):
             parental_advisory=bool(generation.parental_advisory),
             creative_seed=seed,
         )
+        creative_direction = analysis.get("creative_direction") or {}
+        if isinstance(creative_direction, dict) and creative_direction:
+            direction_text = "; ".join(
+                f"{key.replace('_', ' ')} = {value}"
+                for key, value in creative_direction.items()
+                if value
+            )
+            brief = (
+                f"{brief} USER-SELECTED CREATIVE DIRECTION: {direction_text}. "
+                "Treat these choices as firm art-direction preferences while keeping "
+                "the result commercially credible, song-specific, and non-stereotypical."
+            )
         concepts = await self._plan_concepts(db, generation, signal, brief, seed)
         ranking: ConceptRankingResult = await self.concept_ranker.rank(
             concepts=concepts,

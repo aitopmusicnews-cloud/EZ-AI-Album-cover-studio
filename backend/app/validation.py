@@ -105,9 +105,12 @@ def build_input_hash(
     title: str | None = None,
     artist: str | None = None,
     parental_advisory: bool = False,
+    creative_direction: str | None = None,
 ) -> str:
     canonical = (
         f"audio:{audio_hash or '-'}|lyrics:{lyrics_hash or '-'}|"
         f"title:{title or '-'}|artist:{artist or '-'}|advisory:{int(parental_advisory)}"
-    ).encode("utf-8")
-    return sha256_bytes(canonical)
+    )
+    if creative_direction:
+        canonical += f"|creative_direction:{creative_direction}"
+    return sha256_bytes(canonical.encode("utf-8"))

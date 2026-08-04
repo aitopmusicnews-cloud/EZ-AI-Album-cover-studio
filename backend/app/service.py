@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import re
 from typing import Any
@@ -66,13 +67,25 @@ class GenerationService:
         lyrics_text: str | None,
         title: str | None,
         artist: str | None,
+        creative_direction: dict[str, str] | None,
         parental_advisory: bool,
     ) -> CreateResult:
         collection_id = self._normalize_collection_id(collection_id)
         audio_hash = sha256_bytes(audio_bytes) if audio_bytes else None
         lyrics_hash = sha256_bytes(lyrics_text.encode("utf-8")) if lyrics_text else None
+        canonical_direction = json.dumps(
+            creative_direction or {},
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
         input_hash = build_input_hash(
-            audio_hash, lyrics_hash, title=title, artist=artist, parental_advisory=parental_advisory
+            audio_hash,
+            lyrics_hash,
+            title=title,
+            artist=artist,
+            parental_advisory=parental_advisory,
+            creative_direction=canonical_direction or None,
         )
 
         cached = db.scalar(
@@ -103,6 +116,11 @@ class GenerationService:
             title=title,
             artist=artist,
             parental_advisory=parental_advisory,
+            analysis_json=(
+                {"creative_direction": dict(creative_direction)}
+                if creative_direction
+                else None
+            ),
             status="queued",
         )
         if audio_bytes:
@@ -123,6 +141,7 @@ class GenerationService:
                 "version": generation.version,
                 "title": title,
                 "artist": artist,
+                "creative_direction": creative_direction or {},
                 "parental_advisory": parental_advisory,
             },
         )

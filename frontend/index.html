@@ -39,6 +39,75 @@
           <label>Album / single title<input id="release-title" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Midnight Drive" /></label>
           <label>Artist name<input id="artist-name" type="text" maxlength="200" autocomplete="off" placeholder="e.g. The Artist Cut" /></label>
         </div>
+        <div class="release-fields">
+          <label>Artist presentation
+            <select id="artist-presentation" required>
+              <option value="" selected disabled>Choose one…</option>
+              <option>Male artist</option>
+              <option>Female artist</option>
+              <option>Duo or group</option>
+              <option>Nonbinary or androgynous</option>
+              <option>Do not show the artist</option>
+              <option>Let AI decide</option>
+            </select>
+          </label>
+          <label>Primary genre
+            <select id="genre-direction">
+              <option selected>Auto-detect from song</option>
+              <option>Hip-hop / trap</option>
+              <option>R&amp;B / soul</option>
+              <option>Pop</option>
+              <option>Rock / alternative</option>
+              <option>Country / Americana</option>
+              <option>Electronic / dance</option>
+              <option>Gospel / inspirational</option>
+              <option>Afrobeats / Amapiano</option>
+              <option>Reggae / dancehall</option>
+              <option>Latin</option>
+              <option>Jazz / blues</option>
+              <option>Other</option>
+            </select>
+          </label>
+          <label>Cover mood
+            <select id="mood-direction">
+              <option selected>Auto-detect from song</option>
+              <option>Confident / powerful</option>
+              <option>Romantic / sensual</option>
+              <option>Dark / moody</option>
+              <option>Joyful / uplifting</option>
+              <option>Raw / emotional</option>
+              <option>Mysterious / cinematic</option>
+              <option>Energetic / party</option>
+              <option>Peaceful / reflective</option>
+            </select>
+          </label>
+          <label>Visual style
+            <select id="visual-style">
+              <option selected>Let AI decide</option>
+              <option>Photoreal editorial</option>
+              <option>Luxury / glamour</option>
+              <option>Gritty street</option>
+              <option>Minimal / clean</option>
+              <option>Cinematic story</option>
+              <option>Retro / vintage</option>
+              <option>Abstract / symbolic</option>
+              <option>Illustrated</option>
+            </select>
+          </label>
+          <label>Color direction
+            <select id="color-direction">
+              <option selected>Let AI decide</option>
+              <option>Warm tones</option>
+              <option>Cool tones</option>
+              <option>Black and white</option>
+              <option>Dark with neon accents</option>
+              <option>Earth tones</option>
+              <option>Pastels</option>
+              <option>Bold primary colors</option>
+            </select>
+          </label>
+        </div>
+        <p class="field-note">Artist presentation is required. The other choices are optional guidance and can stay on automatic.</p>
         <label class="checkbox-row"><input id="parental-advisory" type="checkbox" /><span>Add Parental Advisory — Explicit Content label</span></label>
         <p class="field-note">Title, artist, and advisory are added after AI generation so the final wording is exact rather than AI-garbled.</p>
         <label>MP3 audio<input id="audio" type="file" accept="audio/mpeg,.mp3" /></label>

@@ -18,6 +18,77 @@ from ..validation import read_lyrics_file, read_validated_mp3, sanitize_lyrics, 
 router = APIRouter(prefix="/api", tags=["album-covers"])
 _COMPLETED_STATUSES = {"complete", "partial", "needs_mood_choice"}
 
+_CREATIVE_DIRECTION_ALLOWED = {
+    "artist_presentation": {
+        "Male artist",
+        "Female artist",
+        "Duo or group",
+        "Nonbinary or androgynous",
+        "Do not show the artist",
+        "Let AI decide",
+    },
+    "genre_direction": {
+        "Auto-detect from song",
+        "Hip-hop / trap",
+        "R&B / soul",
+        "Pop",
+        "Rock / alternative",
+        "Country / Americana",
+        "Electronic / dance",
+        "Gospel / inspirational",
+        "Afrobeats / Amapiano",
+        "Reggae / dancehall",
+        "Latin",
+        "Jazz / blues",
+        "Other",
+    },
+    "mood_direction": {
+        "Auto-detect from song",
+        "Confident / powerful",
+        "Romantic / sensual",
+        "Dark / moody",
+        "Joyful / uplifting",
+        "Raw / emotional",
+        "Mysterious / cinematic",
+        "Energetic / party",
+        "Peaceful / reflective",
+    },
+    "visual_style": {
+        "Let AI decide",
+        "Photoreal editorial",
+        "Luxury / glamour",
+        "Gritty street",
+        "Minimal / clean",
+        "Cinematic story",
+        "Retro / vintage",
+        "Abstract / symbolic",
+        "Illustrated",
+    },
+    "color_direction": {
+        "Let AI decide",
+        "Warm tones",
+        "Cool tones",
+        "Black and white",
+        "Dark with neon accents",
+        "Earth tones",
+        "Pastels",
+        "Bold primary colors",
+    },
+}
+
+
+def _creative_choice(value: str | None, key: str, default: str) -> str:
+    from fastapi import HTTPException
+
+    clean = sanitize_metadata_text(
+        value,
+        field_name=key.replace("_", " ").title(),
+        max_chars=80,
+    ) or default
+    if clean not in _CREATIVE_DIRECTION_ALLOWED[key]:
+        raise HTTPException(status_code=422, detail=f"Invalid {key.replace('_', ' ')}.")
+    return clean
+
 
 def get_db(request: Request):
     yield from request.app.state.database.session()
@@ -70,6 +141,11 @@ async def create_generation(
     lyrics_text: str | None = Form(default=None),
     title: str | None = Form(default=None),
     artist: str | None = Form(default=None),
+    artist_presentation: str | None = Form(default=None),
+    genre_direction: str | None = Form(default=None),
+    mood_direction: str | None = Form(default=None),
+    visual_style: str | None = Form(default=None),
+    color_direction: str | None = Form(default=None),
     parental_advisory: bool = Form(default=False),
     collection_id: str | None = Form(default=None),
     mood_path: str = Form(default="auto", pattern="^(auto|blend|audio|lyrics)$"),
@@ -83,6 +159,38 @@ async def create_generation(
     combined_lyrics = "\n\n".join(part for part in (pasted_lyrics, file_lyrics) if part).strip() or None
     clean_title = sanitize_metadata_text(title, field_name="Title")
     clean_artist = sanitize_metadata_text(artist, field_name="Artist")
+    creative_direction = {
+        "artist_presentation": _creative_choice(
+            artist_presentation,
+            "artist_presentation",
+            "Let AI decide",
+        ),
+        "genre_direction": _creative_choice(
+            genre_direction,
+            "genre_direction",
+            "Auto-detect from song",
+        ),
+        "mood_direction": _creative_choice(
+            mood_direction,
+            "mood_direction",
+            "Auto-detect from song",
+        ),
+        "visual_style": _creative_choice(
+            visual_style,
+            "visual_style",
+            "Let AI decide",
+        ),
+        "color_direction": _creative_choice(
+            color_direction,
+            "color_direction",
+            "Let AI decide",
+        ),
+    }
+    creative_direction = {
+        key: value
+        for key, value in creative_direction.items()
+        if value not in {"Let AI decide", "Auto-detect from song"}
+    }
     if not audio_bytes and not combined_lyrics:
         from fastapi import HTTPException
 
@@ -96,6 +204,7 @@ async def create_generation(
         lyrics_text=combined_lyrics,
         title=clean_title,
         artist=clean_artist,
+        creative_direction=creative_direction,
         parental_advisory=parental_advisory,
     )
 

@@ -54,8 +54,14 @@ async function submitGeneration(event) {
   const lyricsText = document.querySelector("#lyrics-text").value.trim();
   const title = document.querySelector("#release-title").value.trim();
   const artist = document.querySelector("#artist-name").value.trim();
+  const artistPresentation = document.querySelector("#artist-presentation").value;
+  const genreDirection = document.querySelector("#genre-direction").value;
+  const moodDirection = document.querySelector("#mood-direction").value;
+  const visualStyle = document.querySelector("#visual-style").value;
+  const colorDirection = document.querySelector("#color-direction").value;
   const parentalAdvisory = document.querySelector("#parental-advisory").checked;
   const count = Number(document.querySelector("#variation-count").value);
+  if (!artistPresentation) return showError("Choose the artist presentation.");
   if (!audio && !lyricsFile && !lyricsText) return showError("Add an MP3, lyrics, or both.");
 
   setBusy(true);
@@ -66,6 +72,11 @@ async function submitGeneration(event) {
     data.set("lyrics_text", lyricsText);
     data.set("title", title);
     data.set("artist", artist);
+    data.set("artist_presentation", artistPresentation);
+    data.set("genre_direction", genreDirection);
+    data.set("mood_direction", moodDirection);
+    data.set("visual_style", visualStyle);
+    data.set("color_direction", colorDirection);
     data.set("parental_advisory", String(parentalAdvisory));
     data.set("variation_count", String(count));
     data.set("mood_path", "auto");
