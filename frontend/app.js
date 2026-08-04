@@ -19,10 +19,23 @@ document.querySelector("#collection-label").textContent = `Audit collection: ${s
 form.addEventListener("submit", submitGeneration);
 refreshHistory().catch(() => undefined);
 
+function createCollectionId() {
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID().replace(/-/g, "");
+  }
+
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(
+    bytes,
+    byte => byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
 function getCollectionId() {
   const existing = localStorage.getItem("album-cover-collection");
   if (existing) return existing;
-  const created = crypto.randomUUID().replaceAll("-", "");
+  const created = createCollectionId();
   localStorage.setItem("album-cover-collection", created);
   return created;
 }
