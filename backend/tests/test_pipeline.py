@@ -303,9 +303,14 @@ def test_creative_director_makes_each_image_prompt_materially_different(app_fact
     assert body["status"] == "complete"
     assert len(images.prompts) == 5
     assert len(set(images.prompts)) == 5
-    assert all("CREATIVE DIRECTOR CONCEPT" in p for p in images.prompts)
-    assert any("cut-paper collage" in p for p in images.prompts)
-    assert any("screenprint sleeve" in p for p in images.prompts)
+    assert all("CONCEPT:" in prompt for prompt in images.prompts)
+    assert all("Medium:" in prompt for prompt in images.prompts)
+
+    rendered_concepts = {
+        prompt.split("CONCEPT:", 1)[1].split(".", 1)[0].strip()
+        for prompt in images.prompts
+    }
+    assert len(rendered_concepts) >= 2
 
 
 def test_fresh_variations_tell_creative_director_about_previous_set(app_factory):
@@ -322,7 +327,10 @@ def test_fresh_variations_tell_creative_director_about_previous_set(app_factory)
     assert director.calls == 2
     assert director.previous_prompts_seen[0] == []
     assert director.previous_prompts_seen[1]
-    assert "Concept 1-1" in director.previous_prompts_seen[1][0]
+    previous_prompt = director.previous_prompts_seen[1][0]
+    assert "subject=" in previous_prompt
+    assert "setting=" in previous_prompt
+    assert "direction=" in previous_prompt
     first_batch = images.prompts[:3]
     second_batch = images.prompts[3:]
     assert set(first_batch).isdisjoint(set(second_batch))

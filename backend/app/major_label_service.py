@@ -130,6 +130,53 @@ class MajorLabelGenerationService(GenerationService):
         db.commit()
         await self._fill_set(db, generation, variation_set)
 
+    @staticmethod
+    def _previous_concept_prompts(
+        db: Session,
+        generation_id: str,
+    ) -> list[str]:
+        prompts: list[str] = []
+
+        variation_set_ids = list(
+            db.scalars(
+                select(VariationSet.id)
+                .where(VariationSet.generation_id == generation_id)
+                .order_by(VariationSet.set_number.desc())
+                .limit(3)
+            )
+        )
+
+        for variation_set_id in variation_set_ids:
+            concepts = list(
+                db.scalars(
+                    select(ConceptCandidate)
+                    .where(
+                        ConceptCandidate.variation_set_id
+                        == variation_set_id
+                    )
+                    .order_by(
+                        ConceptCandidate.ordinal,
+                        ConceptCandidate.id,
+                    )
+                )
+            )
+
+            if not concepts:
+                continue
+
+            prompts.append(
+                " | ".join(
+                    f"{concept.name}: subject={concept.subject}; "
+                    f"setting={concept.setting}; "
+                    f"medium={concept.medium}; "
+                    f"camera={concept.camera}; "
+                    f"direction={concept.image_prompt}"
+                    for concept in concepts
+                )
+            )
+
+        return prompts
+
     async def _plan_concepts(
         self,
         db: Session,
@@ -138,6 +185,7 @@ class MajorLabelGenerationService(GenerationService):
         brief: str,
         seed: str,
     ) -> list[dict[str, Any]]:
+        generation = self.get(db, generation.id)
         count = self.settings.concept_count
         if self.creative_director is not None:
             try:
@@ -150,7 +198,7 @@ class MajorLabelGenerationService(GenerationService):
                         creative_seed=seed,
                         title=generation.title,
                         artist=generation.artist,
-                        previous_prompts=[item.prompt for item in generation.variation_sets[-3:]],
+                        previous_prompts=self._previous_concept_prompts(db, generation.id),
                     )
 
                 plan = await with_retry(
