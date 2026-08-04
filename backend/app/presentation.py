@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .market_positioning import position_cover
 from .models import Generation
 from .schemas import (
     AuditEventResponse,
@@ -13,6 +14,14 @@ from .schemas import (
 def generation_response(
     generation: Generation, *, cache_hit: bool = False, include_audit: bool = True
 ) -> GenerationResponse:
+    analysis = generation.analysis_json or {}
+    structured_signal = analysis.get("structured_signal") or {}
+    audio_signal = analysis.get("audio") or {}
+    lyric_signal = analysis.get("lyrics") or {}
+    genre = structured_signal.get("inferred_genre") or audio_signal.get("inferred_genre")
+    mood_value = structured_signal.get("mood") or audio_signal.get("mood") or lyric_signal.get("mood")
+    mood = mood_value.get("label") if isinstance(mood_value, dict) else mood_value
+
     sets = []
     for item in generation.variation_sets:
         concepts_by_id = {concept.id: concept for concept in item.concepts}
@@ -39,6 +48,17 @@ def generation_response(
         variations = []
         for variation in item.variations:
             concept = concepts_by_id.get(variation.concept_candidate_id)
+            market_positioning = variation.market_positioning_json
+            if market_positioning is None and (
+                variation.critic_scores_json or variation.platform_scores_json
+            ):
+                market_positioning = position_cover(
+                    critic_scores=variation.critic_scores_json,
+                    platform_scores=variation.platform_scores_json,
+                    concept_name=concept.name if concept else None,
+                    genre=str(genre) if genre else None,
+                    mood=str(mood) if mood else None,
+                )
             variations.append(
                 VariationResponse(
                     id=variation.id,
@@ -59,6 +79,7 @@ def generation_response(
                     commercial_score=variation.commercial_score,
                     critic_feedback=variation.cover_feedback_json,
                     platform_scores=variation.platform_scores_json,
+                    market_positioning=market_positioning,
                     created_at=variation.created_at,
                 )
             )
