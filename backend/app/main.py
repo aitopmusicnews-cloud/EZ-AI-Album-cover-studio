@@ -15,6 +15,7 @@ from .creative_director import GeminiCreativeDirector
 from .database import create_database
 from .feedback_generation_service import FeedbackDrivenGenerationService
 from .image_client import OpenAIImageClient
+from .job_queue import SQSGenerationQueue
 from .lyrics_analysis import LyricsAnalyzer
 from .routers.generations import router
 from .storage import LocalStorage
@@ -37,6 +38,11 @@ def create_app(
     dependencies = dependencies or AppDependencies()
     database = create_database(settings.database_url)
     storage = LocalStorage(settings.storage_root)
+    job_queue = SQSGenerationQueue(
+        queue_url=settings.sqs_queue_url,
+        region_name=settings.aws_region,
+        visibility_timeout_seconds=settings.sqs_visibility_timeout_seconds,
+    )
     audio_analyzer = dependencies.audio_analyzer or AudioAnalyzer(
         settings.audio_analysis_max_seconds
     )
@@ -83,10 +89,11 @@ def create_app(
         database.create_all()
         yield
 
-    app = FastAPI(title=settings.app_name, version="1.2.0", lifespan=lifespan)
+    app = FastAPI(title=settings.app_name, version="1.3.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.database = database
     app.state.generation_service = generation_service
+    app.state.job_queue = job_queue
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
@@ -107,6 +114,10 @@ def create_app(
                 "renders_per_concept": settings.renders_per_concept,
                 "render_count": settings.render_count,
                 "generate_better": True,
+            },
+            "queue": {
+                "provider": "sqs" if job_queue.enabled else "local-background",
+                "configured": job_queue.enabled,
             },
             "providers": {
                 "gemini_creative_director": {
