@@ -110,13 +110,20 @@ class MajorLabelGenerationService(GenerationService):
                     "lighting character, texture, and recurring signature details must "
                     "remain visibly related."
                 )
-        concepts = await self._plan_concepts(db, generation, signal, brief, seed)
+        concepts = await self._plan_concepts(
+            db,
+            generation,
+            signal,
+            brief,
+            seed,
+            count=variation_count,
+        )
         ranking: ConceptRankingResult = await self.concept_ranker.rank(
             concepts=concepts,
             signal=signal,
             title=generation.title,
             artist=generation.artist,
-            selected_count=min(self.settings.selected_concept_count, len(concepts)),
+            selected_count=min(variation_count, len(concepts)),
         )
         selected_total = max(1, len(ranking.selected_concept_ids))
         variation_set = VariationSet(
@@ -218,9 +225,10 @@ class MajorLabelGenerationService(GenerationService):
         signal: dict[str, Any],
         brief: str,
         seed: str,
+        count: int | None = None,
     ) -> list[dict[str, Any]]:
         generation = self.get(db, generation.id)
-        count = self.settings.concept_count
+        count = max(3, min(int(count or self.settings.concept_count), 8))
         if self.creative_director is not None:
             try:
 

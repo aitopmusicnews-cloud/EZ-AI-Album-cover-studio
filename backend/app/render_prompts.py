@@ -42,7 +42,12 @@ def build_render_prompt(
             style_preset.prompt_fragment(),
             execution,
             feedback,
-            "Do not borrow the subject, setting, camera, or central metaphor from another concept.",
+            (
+                "This result must look like a different campaign from every other result. "
+                "Do not reuse another result's subject type, setting class, camera language, "
+                "dominant palette, lighting setup, central symbol, primary prop, composition, "
+                "or image-making medium. An explicit Brand / Style Lock is the only exception."
+            ),
             "No generated title, artist text, fake logos, label marks, or watermarks.",
         ]
     ).strip()

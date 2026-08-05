@@ -129,6 +129,13 @@ Do not behave like a template engine. Start from the song's emotional story, lyr
 musical character, then invent visual premises that could plausibly be pitched by different art
 directors. Pairwise diversity is a hard requirement.
 
+For the first four concepts, behave as if four unrelated creative agencies were
+commissioned independently. They must not share a subject type, location class,
+camera distance or viewpoint, image-making medium, dominant palette, lighting
+setup, central symbol, composition structure, wardrobe concept, or primary prop.
+The only permitted shared elements are the song identity and an explicit
+Brand / Style Lock supplied by the user.
+
 Rules:
 - Every concept must differ in SUBJECT CATEGORY, SETTING CLASS, CAMERA LANGUAGE, DOMINANT SHAPE,
   VISUAL METAPHOR, and IMAGE-MAKING MEDIUM. Changing pose or color is not enough.
@@ -244,7 +251,14 @@ Rules:
     @staticmethod
     def _validate_diversity(concepts: list[dict[str, str]]) -> None:
         # Reject an obviously repetitive plan before spending image-generation calls.
-        for field in ("subject", "setting", "camera", "medium"):
+        for field in (
+            "subject",
+            "setting",
+            "action_or_symbol",
+            "camera",
+            "medium",
+            "palette",
+        ):
             normalized = [" ".join(str(c[field]).lower().split()) for c in concepts]
             if len(set(normalized)) != len(normalized):
                 raise ValueError(f"concept plan repeats {field}")

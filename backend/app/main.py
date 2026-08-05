@@ -110,9 +110,11 @@ def create_app(
             "status": "ok",
             "pipeline": {
                 "concept_count": settings.concept_count,
-                "selected_concept_count": settings.selected_concept_count,
-                "renders_per_concept": settings.renders_per_concept,
+                "selected_concept_count": settings.render_count,
+                "renders_per_concept": 1,
                 "render_count": settings.render_count,
+                "result_strategy": "one_unique_concept_per_result",
+                "diversity_mode": "maximum",
                 "generate_better": True,
             },
             "queue": {

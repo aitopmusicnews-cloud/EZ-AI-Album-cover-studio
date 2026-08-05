@@ -190,7 +190,14 @@
         <label>MP3 audio<input id="audio" type="file" accept="audio/mpeg,.mp3" /></label>
         <label>Lyrics text file<input id="lyrics-file" type="file" accept="text/plain,.txt" /></label>
         <label>Or paste lyrics<textarea id="lyrics-text" rows="10" placeholder="Paste lyrics here…"></textarea></label>
-        <label>Variations<select id="variation-count"><option>3</option><option selected>4</option><option>5</option></select></label>
+        <label>Distinct cover directions
+          <select id="variation-count">
+            <option>3</option>
+            <option selected>4</option>
+            <option>5</option>
+          </select>
+        </label>
+        <p class="field-note">Each result uses a separate concept, subject, setting, camera approach, medium, and composition—not alternate versions of the same idea.</p>
         <button class="primary" id="submit-button" type="submit">Analyze and generate</button>
         <div id="form-error" class="error hidden"></div>
         <p class="collection-label" id="collection-label"></p>

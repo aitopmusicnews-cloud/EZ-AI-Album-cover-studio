@@ -100,6 +100,7 @@ class FeedbackDrivenGenerationService(MajorLabelGenerationService):
         signal: dict[str, Any],
         brief: str,
         seed: str,
+        count: int | None = None,
     ) -> list[dict[str, Any]]:
         improvement_context = self._active_improvement_context.get()
         if improvement_context:
@@ -108,7 +109,14 @@ class FeedbackDrivenGenerationService(MajorLabelGenerationService):
                 "GENERATE BETTER — CRITIC-GUIDED REFINEMENT BRIEF\n"
                 f"{improvement_context}"
             )
-        return await super()._plan_concepts(db, generation, signal, brief, seed)
+        return await super()._plan_concepts(
+            db,
+            generation,
+            signal,
+            brief,
+            seed,
+            count=count,
+        )
 
     @staticmethod
     def _latest_scored_set(generation: Generation):
