@@ -8,6 +8,11 @@ const FONT_OPTIONS = [
   "The Rave Is In Your Pants", "Underground", "Bold Doodle", "Great Vibes",
   "Jo Wrote a Lovesong", "Lora", "Chunk Five", "Chunk Five Print",
   "Lexographer", "CMU Serif", "CMU Sans", "CMU Typewriter",
+  "League Gothic Italic", "League Gothic Condensed Italic",
+  "Libre Baskerville Bold", "Libre Baskerville Italic",
+  "Montserrat Regular", "Montserrat Black", "Montserrat Italic",
+  "Poppins Regular", "Poppins Black", "Poppins Italic",
+  "Lora Bold", "Lora Italic", "Lora Bold Italic", "CMU Serif Bold", "CMU Sans Bold",
 ];
 
 let editor;
@@ -35,7 +40,7 @@ function createEditor() {
             <button type="button" data-action="delete">Delete</button>
           </div>
           <label>Text<textarea data-field="text" rows="3" maxlength="200"></textarea></label>
-          <label>Font
+          <label>Font <span data-font-count></span>
             <div class="font-picker">
               <button type="button" class="font-picker-toggle" data-action="font-picker"><span data-font-current></span><span>⌄</span></button>
               <div class="font-picker-menu hidden">
@@ -73,16 +78,18 @@ function createEditor() {
   renderFontOptions(modal, FONT_OPTIONS);
 
   const api = {
-    modal, canvas, ctx, background: null, variationId: "", selected: 0,
+    modal, canvas, ctx, background: null, variationId: "", releaseTitle: "", selected: 0,
     defaults: [], layers: [], drag: null,
     async open({ variationId, imageUrl, title, artist }) {
       this.variationId = variationId;
+      this.releaseTitle = title || "Album Cover";
       this.defaults = defaultLayers(title, artist);
       this.layers = loadLayers(variationId) || structuredClone(this.defaults);
       this.selected = 0;
       this.background = await loadImage(imageUrl);
       modal.classList.remove("hidden");
       document.body.classList.add("type-editor-open");
+      resetFontSearch(modal);
       syncControls(this);
       await document.fonts.ready;
       draw(this);
@@ -332,10 +339,26 @@ async function exportPng(api) {
   output.toBlob(blob => {
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `ez-ai-album-cover-${api.variationId.slice(0, 8)}-edited.png`;
+    link.download = `${downloadFilename(api.releaseTitle)}.png`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   }, "image/png");
+}
+
+function downloadFilename(title) {
+  const clean = String(title || "Album Cover")
+    .replace(/[\\/:*?"<>|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\.+$/g, "")
+    .slice(0, 120);
+  return clean || "Album Cover";
+}
+
+function resetFontSearch(modal) {
+  modal.querySelector("[data-font-search]").value = "";
+  for (const option of modal.querySelectorAll("[data-font-family]")) option.hidden = false;
+  modal.querySelector("[data-font-count]").textContent = `(${FONT_OPTIONS.length} available)`;
 }
 
 function loadLayers(id) {

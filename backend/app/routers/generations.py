@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -456,10 +458,12 @@ def select_variation(variation_id: str, request: Request, db: Session = Depends(
 
 @router.get("/variations/{variation_id}/download")
 def download_variation(variation_id: str, request: Request, db: Session = Depends(get_db)):
-    path, mime_type = service(request).variation_file(db, variation_id)
+    path, mime_type, title = service(request).variation_file(db, variation_id)
+    safe_title = re.sub(r'[\\/:*?"<>|]+', "", title or "Album Cover").strip().rstrip(".")
+    safe_title = re.sub(r"\s+", " ", safe_title)[:120] or "Album Cover"
     return FileResponse(
         path,
         media_type=mime_type,
-        filename=f"album-cover-{variation_id}.png",
+        filename=f"{safe_title}.png",
         content_disposition_type="attachment",
     )

@@ -268,12 +268,18 @@ class GenerationService:
         )
         return self.get(db, generation.id)
 
-    def variation_file(self, db: Session, variation_id: str) -> tuple[Path, str]:
+    def variation_file(self, db: Session, variation_id: str) -> tuple[Path, str, str | None]:
         variation = db.get(Variation, variation_id)
         if variation is None:
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Variation not found.")
-        return self.storage.absolute(variation.image_path), variation.mime_type
+        variation_set = db.get(VariationSet, variation.variation_set_id)
+        generation = db.get(Generation, variation_set.generation_id) if variation_set else None
+        return (
+            self.storage.absolute(variation.image_path),
+            variation.mime_type,
+            generation.title if generation else None,
+        )
 
     async def _ensure_analysis(self, db: Session, generation: Generation) -> bool:
         analysis = dict(generation.analysis_json or {})

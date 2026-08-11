@@ -36,6 +36,21 @@
 @font-face { font-family: "CMU Serif"; src: url("/fonts/cmu/cmunrm.ttf"); }
 @font-face { font-family: "CMU Sans"; src: url("/fonts/cmu/cmunss.ttf"); }
 @font-face { font-family: "CMU Typewriter"; src: url("/fonts/cmu/cmuntt.ttf"); }
+@font-face { font-family: "League Gothic Italic"; src: url("/fonts/league-gothic/LeagueGothic-Italic.otf"); }
+@font-face { font-family: "League Gothic Condensed Italic"; src: url("/fonts/league-gothic/LeagueGothic-CondensedItalic.otf"); }
+@font-face { font-family: "Libre Baskerville Bold"; src: url("/fonts/libre-baskerville/LibreBaskerville-Bold.ttf"); }
+@font-face { font-family: "Libre Baskerville Italic"; src: url("/fonts/libre-baskerville/LibreBaskerville-Italic.ttf"); }
+@font-face { font-family: "Montserrat Regular"; src: url("/fonts/montserrat/Montserrat-Regular.otf"); }
+@font-face { font-family: "Montserrat Black"; src: url("/fonts/montserrat/Montserrat-Black.otf"); }
+@font-face { font-family: "Montserrat Italic"; src: url("/fonts/montserrat/Montserrat-Italic.otf"); }
+@font-face { font-family: "Poppins Regular"; src: url("/fonts/poppins/Poppins-Regular.ttf"); }
+@font-face { font-family: "Poppins Black"; src: url("/fonts/poppins/Poppins-Black.ttf"); }
+@font-face { font-family: "Poppins Italic"; src: url("/fonts/poppins/Poppins-Italic.ttf"); }
+@font-face { font-family: "Lora Bold"; src: url("/fonts/lora/Lora-Bold.ttf"); }
+@font-face { font-family: "Lora Italic"; src: url("/fonts/lora/Lora-Italic.ttf"); }
+@font-face { font-family: "Lora Bold Italic"; src: url("/fonts/lora/Lora-BoldItalic.ttf"); }
+@font-face { font-family: "CMU Serif Bold"; src: url("/fonts/cmu/cmunbx.ttf"); }
+@font-face { font-family: "CMU Sans Bold"; src: url("/fonts/cmu/cmunsx.ttf"); }
 
 .type-editor-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.86); }
 .type-editor-modal.hidden { display: none; }
@@ -55,10 +70,10 @@
 .type-controls input[type="color"] { min-height: 44px; padding: 4px; }
 .font-picker { position: relative; margin-top: 6px; }
 .font-picker-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; text-align: left; }
-.font-picker-menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; max-height: 360px; padding: 8px; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 12px; background: #202120; box-shadow: 0 18px 45px rgba(0,0,0,.65); }
+.font-picker-menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; max-height: min(560px, 65vh); padding: 8px; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 12px; background: #202120; box-shadow: 0 18px 45px rgba(0,0,0,.65); }
 .font-picker-menu.hidden { display: none; }
 .font-picker-menu input { margin-bottom: 8px; }
-.font-preview-list { display: grid; gap: 5px; max-height: 290px; overflow-y: auto; }
+.font-preview-list { display: grid; gap: 5px; max-height: min(485px, 55vh); overflow-y: auto; }
 .font-preview-option { display: grid; grid-template-columns: minmax(110px, .8fr) minmax(145px, 1.2fr); align-items: center; gap: 10px; width: 100%; padding: 9px 10px; text-align: left; }
 .font-preview-option.active { border-color: var(--copper-bright); background: var(--copper-wash); }
 .font-preview-option small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }

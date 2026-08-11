@@ -207,6 +207,7 @@ def test_release_metadata_is_stored_and_composited(app_factory):
     assert "lower corner" in prompt
     download = client.get(body["variation_sets"][0]["variations"][0]["download_url"])
     assert download.status_code == 200
+    assert "Midnight%20Drive.png" in download.headers["content-disposition"]
     from io import BytesIO
     from PIL import Image
     image = Image.open(BytesIO(download.content)).convert("RGB")
