@@ -8,8 +8,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ffmpeg \
+        fontconfig \
+        fonts-dejavu-extra \
         libsndfile1 \
         fonts-dejavu-core \
+        fonts-freefont-ttf \
+        fonts-lato \
+        fonts-liberation2 \
+        fonts-noto-core \
+        fonts-texgyre \
+        fonts-urw-base35 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

@@ -328,7 +328,11 @@ class MajorLabelGenerationService(GenerationService):
                     (generation.analysis_json or {}).get("lyrics"),
                     mood_path=variation_set.mood_path,
                 )
-                typography_style = choose_typography_style(signal, position)
+                typography_style = choose_typography_style(
+                    signal,
+                    position,
+                    creative_seed=f"{generation.id}:{variation_set.id}",
+                )
                 cover_bytes = self._compose_release_text(
                     generated.content,
                     generation=generation,

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
+import hashlib
 from io import BytesIO
 from math import pi, sin
 from pathlib import Path
 import os
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+from .typography import split_typography_token
 
 WORKING_IMAGE_SIZE = 1000
 FINAL_IMAGE_SIZE = 3000
@@ -116,16 +120,17 @@ class LocalStorage:
         layout: int,
         style: str,
     ) -> None:
-        if style in {"street_script", "luxury_script", "heritage_script"}:
+        base_style, _ = split_typography_token(style)
+        if base_style in {"street_script", "luxury_script", "heritage_script"}:
             cls._draw_script_release(overlay, title, artist, layout=layout, style=style)
-        elif style == "marker_signature":
-            cls._draw_marker_release(overlay, title, artist, layout=layout)
-        elif style == "vintage_arc":
-            cls._draw_arc_release(overlay, title, artist, layout=layout)
-        elif style == "editorial_italic":
-            cls._draw_editorial_release(overlay, title, artist, layout=layout)
+        elif base_style in {"marker_signature", "stencil_cutout", "typewriter_grunge", "newspaper_collage"}:
+            cls._draw_marker_release(overlay, title, artist, layout=layout, style=style)
+        elif base_style in {"vintage_arc", "psychedelic_display", "art_deco", "retro_bubble"}:
+            cls._draw_arc_release(overlay, title, artist, layout=layout, style=style)
+        elif base_style in {"editorial_italic", "minimal_spaced", "geometric_modern"}:
+            cls._draw_editorial_release(overlay, title, artist, layout=layout, style=style)
         else:
-            cls._draw_slanted_serif_release(overlay, title, artist, layout=layout)
+            cls._draw_slanted_serif_release(overlay, title, artist, layout=layout, style=style)
 
     @classmethod
     def _draw_script_release(
@@ -155,12 +160,13 @@ class LocalStorage:
         text_layer = Image.new("RGBA", (tw + pad * 2, th + pad * 2), (0, 0, 0, 0))
         d = ImageDraw.Draw(text_layer)
 
-        if style == "luxury_script":
+        base_style, _ = split_typography_token(style)
+        if base_style == "luxury_script":
             fill = (246, 236, 214, 255)
             accent = (177, 124, 78, 215)
             angle = -4
             stroke = 1
-        elif style == "heritage_script":
+        elif base_style == "heritage_script":
             fill = (244, 226, 190, 255)
             accent = (88, 50, 28, 220)
             angle = -5
@@ -170,6 +176,8 @@ class LocalStorage:
             accent = (214, 112, 62, 235)
             angle = -7
             stroke = 2
+
+        angle += cls._variant_number(style, 0, 7) - 3
 
         # Copper/ink offset creates hand-painted depth without a block banner.
         d.text((pad + 6, pad + 8 - bbox[1]), title, font=font, fill=accent, stroke_width=stroke + 2, stroke_fill=(0, 0, 0, 155))
@@ -187,6 +195,7 @@ class LocalStorage:
         artist: str | None,
         *,
         layout: int,
+        style: str = "marker_signature",
     ) -> None:
         if not title:
             cls._draw_artist_only(overlay, artist, layout)
@@ -197,7 +206,7 @@ class LocalStorage:
             max_width=int((zone[2] - zone[0]) * 0.9),
             start_size=126,
             min_size=48,
-            candidates=cls._marker_font_candidates(),
+            candidates=cls._marker_font_candidates(style),
         )
         bbox = font.getbbox(title)
         tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
@@ -206,7 +215,8 @@ class LocalStorage:
         # Multiple imperfect offsets mimic marker/paint buildup.
         d.text((44, 38 - bbox[1]), title, font=font, fill=(0, 0, 0, 190), stroke_width=7, stroke_fill=(0, 0, 0, 170))
         d.text((36, 31 - bbox[1]), title, font=font, fill=(238, 232, 216, 255), stroke_width=2, stroke_fill=(71, 46, 33, 220))
-        layer = layer.rotate(4 if layout in {2, 5} else -4, expand=True, resample=Image.Resampling.BICUBIC)
+        angle = (4 if layout in {2, 5} else -4) + cls._variant_number(style, 1, 9) - 4
+        layer = layer.rotate(angle, expand=True, resample=Image.Resampling.BICUBIC)
         x, y = cls._place_layer(layer.size, zone, layout)
         overlay.alpha_composite(layer, (x, y))
         cls._draw_artist_signature(overlay, artist, zone, layout, below_y=y + layer.height)
@@ -219,6 +229,7 @@ class LocalStorage:
         artist: str | None,
         *,
         layout: int,
+        style: str = "editorial_italic",
     ) -> None:
         if not title:
             cls._draw_artist_only(overlay, artist, layout)
@@ -231,13 +242,14 @@ class LocalStorage:
             max_lines=3,
             start_size=112,
             min_size=44,
-            candidates=cls._italic_serif_candidates(),
+            candidates=cls._italic_serif_candidates(style),
         )
         total = cls._lines_height(draw, lines, font, spacing=-6)
         y = cls._zone_start_y(zone, total + (42 if artist else 0), layout)
         for i, line in enumerate(lines):
             # Alternating indents feel editorial instead of centered/blocky.
-            indent = 0 if i % 2 == 0 else 56
+            indent_step = 28 + cls._variant_number(style, 2, 57)
+            indent = 0 if i % 2 == 0 else indent_step
             x = zone[0] + 26 + indent
             if layout in {4, 5}:
                 w = cls._text_width(line, font)
@@ -255,6 +267,7 @@ class LocalStorage:
         artist: str | None,
         *,
         layout: int,
+        style: str = "slanted_serif",
     ) -> None:
         if not title:
             cls._draw_artist_only(overlay, artist, layout)
@@ -265,7 +278,7 @@ class LocalStorage:
             max_width=int((zone[2] - zone[0]) * 0.84),
             start_size=118,
             min_size=44,
-            candidates=cls._display_serif_candidates(),
+            candidates=cls._display_serif_candidates(style),
         )
         bbox = font.getbbox(title)
         tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
@@ -274,7 +287,8 @@ class LocalStorage:
         # Three-color offset resembles print registration / vintage sleeve ink.
         d.text((48, 42 - bbox[1]), title, font=font, fill=(188, 85, 55, 235), stroke_width=2, stroke_fill=(0, 0, 0, 170))
         d.text((37, 30 - bbox[1]), title, font=font, fill=(238, 228, 207, 255), stroke_width=1, stroke_fill=(0, 0, 0, 210))
-        layer = layer.rotate(-8 if layout not in {2, 5} else 6, expand=True, resample=Image.Resampling.BICUBIC)
+        angle = (-8 if layout not in {2, 5} else 6) + cls._variant_number(style, 3, 9) - 4
+        layer = layer.rotate(angle, expand=True, resample=Image.Resampling.BICUBIC)
         x, y = cls._place_layer(layer.size, zone, layout)
         overlay.alpha_composite(layer, (x, y))
         cls._draw_artist_signature(overlay, artist, zone, layout, below_y=y + layer.height)
@@ -287,6 +301,7 @@ class LocalStorage:
         artist: str | None,
         *,
         layout: int,
+        style: str = "vintage_arc",
     ) -> None:
         if not title:
             cls._draw_artist_only(overlay, artist, layout)
@@ -297,9 +312,9 @@ class LocalStorage:
             max_width=int((zone[2] - zone[0]) * 0.86),
             start_size=98,
             min_size=38,
-            candidates=cls._display_serif_candidates(),
+            candidates=cls._display_serif_candidates(style),
         )
-        cls._draw_text_arc(overlay, title, font, zone=zone, layout=layout)
+        cls._draw_text_arc(overlay, title, font, zone=zone, layout=layout, style=style)
         cls._draw_artist_signature(overlay, artist, zone, layout, below_y=zone[1] + int((zone[3] - zone[1]) * 0.72))
 
     @classmethod
@@ -311,6 +326,7 @@ class LocalStorage:
         *,
         zone: tuple[int, int, int, int],
         layout: int,
+        style: str = "vintage_arc",
     ) -> None:
         widths = [max(1, cls._text_width(ch, font)) for ch in text]
         spacing = max(2, int(getattr(font, "size", 50) * 0.03))
@@ -318,20 +334,21 @@ class LocalStorage:
         scale = min(1.0, (zone[2] - zone[0] - 60) / max(1, total))
         if scale < 0.98:
             size = max(28, int(getattr(font, "size", 50) * scale))
-            font = cls._font_from_candidates(size, cls._display_serif_candidates())
+            font = cls._font_from_candidates(size, cls._display_serif_candidates(style))
             widths = [max(1, cls._text_width(ch, font)) for ch in text]
             total = sum(widths) + spacing * max(0, len(text) - 1)
 
         x = zone[0] + max(24, int((zone[2] - zone[0] - total) / 2))
         upward = layout in {1, 4}
         base_y = zone[1] + (70 if upward else max(58, int((zone[3] - zone[1]) * 0.34)))
-        amplitude = min(42, max(20, int((zone[3] - zone[1]) * 0.13)))
+        amplitude = min(52, max(14, int((zone[3] - zone[1]) * 0.10) + cls._variant_number(style, 4, 23)))
 
         for idx, (ch, cw) in enumerate(zip(text, widths)):
             t = idx / max(1, len(text) - 1)
             arc = sin(t * pi) * amplitude
             y = base_y + (arc if upward else -arc)
-            angle = (t - 0.5) * (18 if upward else -18)
+            arc_rotation = 12 + cls._variant_number(style, 5, 17)
+            angle = (t - 0.5) * (arc_rotation if upward else -arc_rotation)
             bbox = font.getbbox(ch or " ")
             h = max(1, bbox[3] - bbox[1])
             char_layer = Image.new("RGBA", (cw + 40, h + 50), (0, 0, 0, 0))
@@ -354,7 +371,7 @@ class LocalStorage:
         if not artist:
             return
         draw = ImageDraw.Draw(overlay)
-        font = cls._font_from_candidates(30, cls._italic_serif_candidates())
+        font = cls._font_from_candidates(30, cls._italic_serif_candidates(artist))
         label = artist  # preserve the user's exact capitalization
         width = cls._text_width(label, font)
         max_y = zone[3] - 34
@@ -528,12 +545,13 @@ class LocalStorage:
 
     @classmethod
     def _script_font_candidates(cls, style: str) -> list[str]:
-        if style == "luxury_script":
+        base_style, _ = split_typography_token(style)
+        if base_style == "luxury_script":
             preferred = [
                 "/System/Library/Fonts/Supplemental/Snell Roundhand.ttc",
                 "/System/Library/Fonts/Apple Chancery.ttf",
             ]
-        elif style == "heritage_script":
+        elif base_style == "heritage_script":
             preferred = [
                 "/System/Library/Fonts/Apple Chancery.ttf",
                 "/System/Library/Fonts/Supplemental/Brush Script.ttf",
@@ -544,40 +562,98 @@ class LocalStorage:
                 "/System/Library/Fonts/Supplemental/Snell Roundhand.ttc",
                 "/System/Library/Fonts/Apple Chancery.ttf",
             ]
-        return preferred + [
+        preferred += [
             "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
         ]
+        return cls._expanded_font_candidates(preferred, "script", style)
 
-    @staticmethod
-    def _marker_font_candidates() -> list[str]:
-        return [
+    @classmethod
+    def _marker_font_candidates(cls, style: str = "marker_signature") -> list[str]:
+        preferred = [
             "/System/Library/Fonts/MarkerFelt.ttc",
             "/System/Library/Fonts/Noteworthy.ttc",
             "/System/Library/Fonts/Supplemental/Chalkboard.ttc",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf",
         ]
+        base_style, _ = split_typography_token(style)
+        category = "mono" if base_style in {"stencil_cutout", "typewriter_grunge"} else "hand"
+        return cls._expanded_font_candidates(preferred, category, style)
 
-    @staticmethod
-    def _italic_serif_candidates() -> list[str]:
-        return [
+    @classmethod
+    def _italic_serif_candidates(cls, style: str = "editorial_italic") -> list[str]:
+        preferred = [
             "/System/Library/Fonts/Supplemental/Didot.ttc",
             "/System/Library/Fonts/Supplemental/Baskerville.ttc",
             "/System/Library/Fonts/Supplemental/Georgia Italic.ttf",
             "/System/Library/Fonts/Supplemental/Times New Roman Italic.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf",
         ]
+        base_style, _ = split_typography_token(style)
+        category = "sans" if base_style in {"minimal_spaced", "geometric_modern"} else "italic"
+        return cls._expanded_font_candidates(preferred, category, style)
 
-    @staticmethod
-    def _display_serif_candidates() -> list[str]:
-        return [
+    @classmethod
+    def _display_serif_candidates(cls, style: str = "slanted_serif") -> list[str]:
+        preferred = [
             "/System/Library/Fonts/Supplemental/Didot.ttc",
             "/System/Library/Fonts/Supplemental/Baskerville.ttc",
             "/System/Library/Fonts/Supplemental/Georgia.ttf",
             "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
         ]
+        base_style, _ = split_typography_token(style)
+        category = "sans" if base_style in {"condensed_poster", "cinematic_title", "retro_bubble"} else "display"
+        return cls._expanded_font_candidates(preferred, category, style)
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _installed_font_files() -> tuple[str, ...]:
+        roots = (Path("/usr/share/fonts/truetype"), Path("/usr/share/fonts/opentype"), Path("/usr/local/share/fonts"))
+        paths: list[str] = []
+        for root in roots:
+            if not root.exists():
+                continue
+            for pattern in ("*.ttf", "*.otf", "*.ttc"):
+                paths.extend(str(path) for path in root.rglob(pattern))
+        return tuple(sorted(set(paths)))
+
+    @classmethod
+    def _expanded_font_candidates(cls, preferred: list[str], category: str, token: str) -> list[str]:
+        keywords = {
+            "script": ("script", "chancery", "italic", "oblique", "z003"),
+            "hand": ("hand", "comic", "chancery", "italic", "oblique"),
+            "italic": ("italic", "oblique", "didot", "garamond", "schoolbook"),
+            "mono": ("mono", "courier", "typewriter", "code"),
+            "sans": ("sans", "lato", "liberation", "gothic", "grotesk"),
+            "display": ("serif", "roman", "bookman", "garamond", "schoolbook", "p052"),
+        }[category]
+        discovered = []
+        for path in cls._installed_font_files():
+            filename = Path(path).name.lower()
+            # Noto Core contains many language-specific faces.  Only choose its
+            # Latin display families automatically so an English release title
+            # can never turn into missing-glyph boxes.
+            if "noto" in filename and not filename.startswith(
+                ("notosans-", "notoserif-", "notosansdisplay-", "notoserifdisplay-")
+            ):
+                continue
+            if any(keyword in filename for keyword in keywords):
+                discovered.append(path)
+        # Hash ordering turns a large installed collection into deterministic but
+        # fresh per-set choices; unavailable macOS paths simply fall through.
+        discovered.sort(key=lambda path: hashlib.sha256(f"{token}|{path}".encode()).digest())
+        rotated_preferred = sorted(
+            preferred,
+            key=lambda path: hashlib.sha256(f"{token}|preferred|{path}".encode()).digest(),
+        )
+        return discovered + rotated_preferred
+
+    @staticmethod
+    def _variant_number(token: str, channel: int, modulus: int) -> int:
+        digest = hashlib.sha256(f"{token}|{channel}".encode("utf-8")).digest()
+        return int.from_bytes(digest[:4], "big") % max(1, modulus)
 
     @staticmethod
     def _font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:

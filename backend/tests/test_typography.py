@@ -1,7 +1,12 @@
 from PIL import Image
 
 from app.storage import LocalStorage
-from app.typography import choose_typography_style, typography_direction
+from app.typography import (
+    choose_typography_style,
+    split_typography_token,
+    typography_direction,
+    typography_idea_capacity,
+)
 
 
 def test_typography_styles_are_genre_aware_and_vary_across_set():
@@ -20,6 +25,26 @@ def test_typography_direction_describes_creative_lettering_not_plain_block_text(
     direction = typography_direction({"inferred_genre": "R&B / soul"}, 1)
     assert "script" in direction
     assert "block" not in direction
+
+
+def test_seeded_typography_profiles_do_not_restart_the_same_sequence():
+    signal = {"inferred_genre": "hip-hop / trap", "mood": {"energy": 0.8}}
+    first_set = [
+        choose_typography_style(signal, position, creative_seed="variation-set-a")
+        for position in range(1, 6)
+    ]
+    fresh_set = [
+        choose_typography_style(signal, position, creative_seed="variation-set-b")
+        for position in range(1, 6)
+    ]
+
+    assert len({split_typography_token(token)[0] for token in first_set}) == 5
+    assert first_set != fresh_set
+    assert all("::" in token for token in first_set)
+
+
+def test_typography_catalog_provides_hundreds_of_design_combinations():
+    assert typography_idea_capacity() >= 500
 
 
 def test_creative_lower_third_treatment_remains_face_safe():

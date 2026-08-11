@@ -494,7 +494,11 @@ class GenerationService:
                     (generation.analysis_json or {}).get("lyrics"),
                     mood_path=variation_set.mood_path,
                 )
-                typography_style = choose_typography_style(signal, position)
+                typography_style = choose_typography_style(
+                    signal,
+                    position,
+                    creative_seed=f"{generation.id}:{variation_set.id}",
+                )
                 relative, width, height = self.storage.save_image(
                     generation.id,
                     variation_set.id,
