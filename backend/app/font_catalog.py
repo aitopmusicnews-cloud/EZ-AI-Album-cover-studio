@@ -11,6 +11,8 @@ FONT_ROOT = Path(__file__).resolve().parent.parent / "assets" / "fonts"
 # one art direction, while seeded ordering prevents the same face recurring.
 BUNDLED_FONTS: dict[str, tuple[str, ...]] = {
     "script": (
+        "great-vibes/GreatVibes-Regular.ttf",
+        "jo-wrote-a-lovesong/Jo_wrote_a_lovesong.ttf",
         "allura/Allura-Regular.ttf",
         "chopin-script/ChopinScript.ttf",
         "magnolia-script/Magnolia Script.otf",
@@ -19,6 +21,8 @@ BUNDLED_FONTS: dict[str, tuple[str, ...]] = {
         "butflow/Butflow.otf",
     ),
     "hand": (
+        "bold-doodle/BoldDoodle-Regular.otf",
+        "lexographer/lexo.ttf",
         "punk-kid/punk kid.ttf",
         "baksoap/Baksoap.otf",
         "the-battle-continuez/TheBattleCont.ttf",
@@ -35,6 +39,9 @@ BUNDLED_FONTS: dict[str, tuple[str, ...]] = {
         "underground/UndergroundNF.otf",
     ),
     "editorial": (
+        "lora/Lora-Italic.ttf",
+        "lora/Lora-Bold.ttf",
+        "cmu/cmunrm.ttf",
         "libre-baskerville/LibreBaskerville-Italic.ttf",
         "libre-baskerville/LibreBaskerville-Bold.ttf",
         "league-gothic/LeagueGothic-Italic.otf",
@@ -43,6 +50,8 @@ BUNDLED_FONTS: dict[str, tuple[str, ...]] = {
         "allura/Allura-Regular.ttf",
     ),
     "modern": (
+        "cmu/cmunss.ttf",
+        "cmu/cmunsx.ttf",
         "montserrat/Montserrat-Regular.otf",
         "montserrat/Montserrat-Bold.otf",
         "poppins/Poppins-Regular.ttf",
@@ -51,6 +60,9 @@ BUNDLED_FONTS: dict[str, tuple[str, ...]] = {
         "contour-generator/Contour Generator.otf",
     ),
     "display": (
+        "chunk-five/Chunk.otf",
+        "chunk-five/Chunk Five Print.otf",
+        "cmu/cmuntt.ttf",
         "pixemon/Pixemon.otf",
         "corleone/Corleone.ttf",
         "corleone/CorleoneDue.ttf",

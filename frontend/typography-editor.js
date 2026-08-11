@@ -5,7 +5,9 @@ const FONT_OPTIONS = [
   "If", "League Gothic", "League Gothic Condensed", "Libre Baskerville",
   "Magnolia Script", "Marlboro", "Miltown", "Montserrat", "Pixemon",
   "Poppins", "Punk Kid", "Ranch Mails", "The Battle Continuez",
-  "The Rave Is In Your Pants", "Underground",
+  "The Rave Is In Your Pants", "Underground", "Bold Doodle", "Great Vibes",
+  "Jo Wrote a Lovesong", "Lora", "Chunk Five", "Chunk Five Print",
+  "Lexographer", "CMU Serif", "CMU Sans", "CMU Typewriter",
 ];
 
 let editor;
@@ -33,7 +35,15 @@ function createEditor() {
             <button type="button" data-action="delete">Delete</button>
           </div>
           <label>Text<textarea data-field="text" rows="3" maxlength="200"></textarea></label>
-          <label>Font<select data-field="font"></select></label>
+          <label>Font
+            <div class="font-picker">
+              <button type="button" class="font-picker-toggle" data-action="font-picker"><span data-font-current></span><span>⌄</span></button>
+              <div class="font-picker-menu hidden">
+                <input type="search" data-font-search placeholder="Search fonts…" autocomplete="off">
+                <div class="font-preview-list" data-font-options></div>
+              </div>
+            </div>
+          </label>
           <div class="type-control-grid">
             <label>Size <span data-value="size"></span><input data-field="size" type="range" min="16" max="240" step="1"></label>
             <label>Rotation <span data-value="rotation"></span><input data-field="rotation" type="range" min="-180" max="180" step="1"></label>
@@ -60,8 +70,7 @@ function createEditor() {
 
   const canvas = modal.querySelector("canvas");
   const ctx = canvas.getContext("2d");
-  const fontSelect = modal.querySelector('[data-field="font"]');
-  for (const family of FONT_OPTIONS) fontSelect.add(new Option(family, family));
+  renderFontOptions(modal, FONT_OPTIONS);
 
   const api = {
     modal, canvas, ctx, background: null, variationId: "", selected: 0,
@@ -88,6 +97,12 @@ function createEditor() {
     const action = event.target.closest("[data-action]")?.dataset.action;
     if (!action) return;
     if (action === "close") api.close();
+    if (action === "font-picker") {
+      modal.querySelector(".font-picker-menu").classList.toggle("hidden");
+      if (!modal.querySelector(".font-picker-menu").classList.contains("hidden")) {
+        modal.querySelector("[data-font-search]").focus();
+      }
+    }
     if (action === "add") {
       api.layers.push(makeLayer("Custom text", "Poppins", 64, 500, 500));
       api.selected = api.layers.length - 1;
@@ -133,6 +148,23 @@ function createEditor() {
     api.selected = index; syncControls(api); draw(api);
   });
 
+  modal.querySelector("[data-font-options]").addEventListener("click", event => {
+    const button = event.target.closest("[data-font-family]");
+    if (!button) return;
+    const layer = api.layers[api.selected];
+    layer.font = button.dataset.fontFamily;
+    modal.querySelector(".font-picker-menu").classList.add("hidden");
+    syncControls(api);
+    document.fonts.load(`${layer.size}px "${layer.font}"`).then(() => draw(api));
+  });
+
+  modal.querySelector("[data-font-search]").addEventListener("input", event => {
+    const query = event.target.value.trim().toLowerCase();
+    for (const option of modal.querySelectorAll("[data-font-family]")) {
+      option.hidden = Boolean(query) && !option.dataset.fontFamily.toLowerCase().includes(query);
+    }
+  });
+
   canvas.addEventListener("pointerdown", event => {
     const point = canvasPoint(canvas, event);
     const hit = findLayer(api, point.x, point.y);
@@ -162,6 +194,8 @@ function defaultLayers(title, artist) {
   return [
     { ...makeLayer(title, "Magnolia Script", 112, 500, 175), name: "Title", strokeWidth: 3, shadow: true },
     { ...makeLayer(artist, "League Gothic", 46, 500, 870), name: "Artist", spacing: 5, uppercase: true },
+    { ...makeLayer("Text 3", "Bold Doodle", 58, 250, 700), name: "Text 3" },
+    { ...makeLayer("Text 4", "Great Vibes", 64, 750, 700), name: "Text 4" },
   ];
 }
 
@@ -185,6 +219,11 @@ function syncControls(api) {
     if (input.type === "checkbox") input.checked = Boolean(value);
     else input.value = value;
   }
+  api.modal.querySelector("[data-font-current]").textContent = layer.font;
+  api.modal.querySelector(".font-picker-toggle").style.fontFamily = `"${layer.font}"`;
+  for (const option of api.modal.querySelectorAll("[data-font-family]")) {
+    option.classList.toggle("active", option.dataset.fontFamily === layer.font);
+  }
   updateValueLabels(api.modal, layer);
   api.modal.querySelector('[data-action="delete"]').disabled = api.layers.length <= 1;
 }
@@ -192,6 +231,23 @@ function syncControls(api) {
 function updateValueLabels(modal, layer) {
   const values = { size: `${layer.size}px`, rotation: `${layer.rotation}°`, spacing: `${layer.spacing}px`, opacity: `${layer.opacity}%`, strokeWidth: `${layer.strokeWidth}px` };
   for (const [field, value] of Object.entries(values)) modal.querySelector(`[data-value="${field}"]`).textContent = value;
+}
+
+function renderFontOptions(modal, families) {
+  const root = modal.querySelector("[data-font-options]");
+  for (const family of families) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "font-preview-option";
+    button.dataset.fontFamily = family;
+    button.style.setProperty("--preview-font", `"${family}"`);
+    const name = document.createElement("small");
+    name.textContent = family;
+    const preview = document.createElement("strong");
+    preview.textContent = "Album Title";
+    button.append(name, preview);
+    root.append(button);
+  }
 }
 
 function draw(api, target = api.ctx, scale = 1, showSelection = true) {

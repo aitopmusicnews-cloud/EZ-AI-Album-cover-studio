@@ -26,6 +26,16 @@
 @font-face { font-family: "The Battle Continuez"; src: url("/fonts/the-battle-continuez/TheBattleCont.ttf"); }
 @font-face { font-family: "The Rave Is In Your Pants"; src: url("/fonts/the-rave-is-in-your-pants/The%20Rave%20Is%20In%20Your%20Pants.otf"); }
 @font-face { font-family: "Underground"; src: url("/fonts/underground/UndergroundNF.otf"); }
+@font-face { font-family: "Bold Doodle"; src: url("/fonts/bold-doodle/BoldDoodle-Regular.otf"); }
+@font-face { font-family: "Great Vibes"; src: url("/fonts/great-vibes/GreatVibes-Regular.ttf"); }
+@font-face { font-family: "Jo Wrote a Lovesong"; src: url("/fonts/jo-wrote-a-lovesong/Jo_wrote_a_lovesong.ttf"); }
+@font-face { font-family: "Lora"; src: url("/fonts/lora/Lora-Regular.ttf"); }
+@font-face { font-family: "Chunk Five"; src: url("/fonts/chunk-five/Chunk.otf"); }
+@font-face { font-family: "Chunk Five Print"; src: url("/fonts/chunk-five/Chunk%20Five%20Print.otf"); }
+@font-face { font-family: "Lexographer"; src: url("/fonts/lexographer/lexo.ttf"); }
+@font-face { font-family: "CMU Serif"; src: url("/fonts/cmu/cmunrm.ttf"); }
+@font-face { font-family: "CMU Sans"; src: url("/fonts/cmu/cmunss.ttf"); }
+@font-face { font-family: "CMU Typewriter"; src: url("/fonts/cmu/cmuntt.ttf"); }
 
 .type-editor-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.86); }
 .type-editor-modal.hidden { display: none; }
@@ -43,6 +53,16 @@
 .type-controls label { margin: 0; }
 .type-controls input[type="range"] { padding: 0; }
 .type-controls input[type="color"] { min-height: 44px; padding: 4px; }
+.font-picker { position: relative; margin-top: 6px; }
+.font-picker-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; text-align: left; }
+.font-picker-menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; max-height: 360px; padding: 8px; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 12px; background: #202120; box-shadow: 0 18px 45px rgba(0,0,0,.65); }
+.font-picker-menu.hidden { display: none; }
+.font-picker-menu input { margin-bottom: 8px; }
+.font-preview-list { display: grid; gap: 5px; max-height: 290px; overflow-y: auto; }
+.font-preview-option { display: grid; grid-template-columns: minmax(110px, .8fr) minmax(145px, 1.2fr); align-items: center; gap: 10px; width: 100%; padding: 9px 10px; text-align: left; }
+.font-preview-option.active { border-color: var(--copper-bright); background: var(--copper-wash); }
+.font-preview-option small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.font-preview-option strong { overflow: hidden; font-family: var(--preview-font); font-size: 1.45rem; font-weight: 400; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .type-checks { display: flex; flex-wrap: wrap; gap: 10px; }
 .type-editor-actions { justify-content: flex-end; margin-top: 16px; }
 .type-editor-actions button, .type-layer-actions button { width: auto; }
