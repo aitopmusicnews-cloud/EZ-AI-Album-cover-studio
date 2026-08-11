@@ -79,7 +79,7 @@ _GENRE_STYLE_POOLS: dict[str, tuple[str, ...]] = {
 # Each style can be paired with many installed faces, twelve ink/treatment
 # recipes and five face-safe layouts.  This conservative capacity figure does
 # not count title-length-specific wrapping or color variation.
-FONT_VARIANTS_PER_STYLE = 12
+FONT_VARIANTS_PER_STYLE = 20
 TREATMENT_VARIANTS = 12
 FACE_SAFE_LAYOUTS = 5
 

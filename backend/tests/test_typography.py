@@ -1,5 +1,6 @@
-from PIL import Image
+from PIL import Image, ImageFont
 
+from app.font_catalog import all_bundled_font_paths, bundled_font_candidates
 from app.storage import LocalStorage
 from app.typography import (
     choose_typography_style,
@@ -45,6 +46,35 @@ def test_seeded_typography_profiles_do_not_restart_the_same_sequence():
 
 def test_typography_catalog_provides_hundreds_of_design_combinations():
     assert typography_idea_capacity() >= 500
+
+
+def test_every_registered_commercial_font_is_present_and_loadable():
+    paths = all_bundled_font_paths()
+    assert len(paths) >= 25
+    for path in paths:
+        assert path.is_file(), path
+        assert ImageFont.truetype(str(path), size=40)
+
+
+def test_bundled_fonts_lead_aws_system_fallbacks_and_change_with_seed():
+    first = bundled_font_candidates("script", "luxury_script::release-a")
+    second = bundled_font_candidates("script", "luxury_script::release-b")
+    assert first
+    assert first != second
+    assert "/assets/fonts/" in first[0]
+
+
+def test_typography_palette_changes_with_release_seed():
+    source = Image.new("RGB", (1000, 1000), (30, 35, 45))
+    first = LocalStorage._apply_release_text(
+        source, title="Color Theory", artist="EZ AI", parental_advisory=False,
+        typography_style="luxury_script::palette-a",
+    )
+    second = LocalStorage._apply_release_text(
+        source, title="Color Theory", artist="EZ AI", parental_advisory=False,
+        typography_style="luxury_script::palette-b",
+    )
+    assert first.tobytes() != second.tobytes()
 
 
 def test_creative_lower_third_treatment_remains_face_safe():

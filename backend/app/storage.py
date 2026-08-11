@@ -10,6 +10,7 @@ import os
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from .font_catalog import bundled_font_candidates
 from .typography import split_typography_token
 
 WORKING_IMAGE_SIZE = 1000
@@ -103,12 +104,51 @@ class LocalStorage:
 
         if title or artist:
             cls._draw_creative_release(overlay, title, artist, layout=layout, style=style)
+            cls._vary_overlay_colors(overlay, canvas, style)
 
         if parental_advisory:
             draw = ImageDraw.Draw(overlay)
             cls._draw_parental_advisory(draw)
 
         return Image.alpha_composite(canvas, overlay).convert("RGB")
+
+    @classmethod
+    def _vary_overlay_colors(cls, overlay: Image.Image, artwork: Image.Image, token: str) -> None:
+        """Apply a seeded, artwork-aware palette without changing exact text.
+
+        Dark artwork receives a luminous fill; light artwork receives a deeper
+        fill. Mid-tone ink is mapped to a contrasting accent while black shadow
+        pixels remain untouched for legibility.
+        """
+        dark_palettes = (
+            ((255, 241, 184), (255, 82, 82)), ((214, 255, 246), (0, 209, 255)),
+            ((255, 222, 244), (255, 77, 166)), ((236, 229, 255), (147, 101, 255)),
+            ((255, 244, 226), (255, 145, 51)), ((225, 255, 193), (88, 214, 141)),
+        )
+        light_palettes = (
+            ((29, 20, 52), (183, 28, 95)), ((15, 54, 68), (0, 119, 182)),
+            ((70, 25, 15), (190, 70, 30)), ((20, 36, 20), (35, 120, 65)),
+            ((25, 25, 28), (110, 44, 145)), ((48, 29, 3), (160, 96, 12)),
+        )
+        sample = artwork.convert("L").resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
+        palettes = dark_palettes if sample < 145 else light_palettes
+        fill, accent = palettes[cls._variant_number(token, 8, len(palettes))]
+        bounds = overlay.getbbox()
+        if not bounds:
+            return
+        region = overlay.crop(bounds)
+        pixels = []
+        for red, green, blue, alpha in region.getdata():
+            luminance = (red * 299 + green * 587 + blue * 114) // 1000
+            if alpha and luminance >= 165:
+                scale = 0.78 + 0.22 * luminance / 255
+                red, green, blue = (int(channel * scale) for channel in fill)
+            elif alpha and luminance >= 55:
+                scale = 0.70 + 0.30 * luminance / 164
+                red, green, blue = (int(channel * scale) for channel in accent)
+            pixels.append((red, green, blue, alpha))
+        region.putdata(pixels)
+        overlay.paste(region, bounds)
 
     @classmethod
     def _draw_creative_release(
@@ -578,7 +618,7 @@ class LocalStorage:
             "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf",
         ]
         base_style, _ = split_typography_token(style)
-        category = "mono" if base_style in {"stencil_cutout", "typewriter_grunge"} else "hand"
+        category = "display" if base_style in {"stencil_cutout", "typewriter_grunge", "newspaper_collage"} else "hand"
         return cls._expanded_font_candidates(preferred, category, style)
 
     @classmethod
@@ -591,7 +631,7 @@ class LocalStorage:
             "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf",
         ]
         base_style, _ = split_typography_token(style)
-        category = "sans" if base_style in {"minimal_spaced", "geometric_modern"} else "italic"
+        category = "modern" if base_style in {"minimal_spaced", "geometric_modern"} else "editorial"
         return cls._expanded_font_candidates(preferred, category, style)
 
     @classmethod
@@ -604,7 +644,7 @@ class LocalStorage:
             "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
         ]
         base_style, _ = split_typography_token(style)
-        category = "sans" if base_style in {"condensed_poster", "cinematic_title", "retro_bubble"} else "display"
+        category = "condensed" if base_style in {"condensed_poster", "cinematic_title"} else "display"
         return cls._expanded_font_candidates(preferred, category, style)
 
     @staticmethod
@@ -624,9 +664,9 @@ class LocalStorage:
         keywords = {
             "script": ("script", "chancery", "italic", "oblique", "z003"),
             "hand": ("hand", "comic", "chancery", "italic", "oblique"),
-            "italic": ("italic", "oblique", "didot", "garamond", "schoolbook"),
-            "mono": ("mono", "courier", "typewriter", "code"),
-            "sans": ("sans", "lato", "liberation", "gothic", "grotesk"),
+            "editorial": ("italic", "oblique", "didot", "garamond", "schoolbook"),
+            "condensed": ("condensed", "sans", "gothic", "grotesk"),
+            "modern": ("sans", "lato", "liberation", "gothic", "grotesk"),
             "display": ("serif", "roman", "bookman", "garamond", "schoolbook", "p052"),
         }[category]
         discovered = []
@@ -648,7 +688,9 @@ class LocalStorage:
             preferred,
             key=lambda path: hashlib.sha256(f"{token}|preferred|{path}".encode()).digest(),
         )
-        return discovered + rotated_preferred
+        # Bundled faces lead the list so AWS cannot silently fall back to the
+        # same Debian system font. System faces remain emergency fallbacks.
+        return bundled_font_candidates(category, token) + discovered + rotated_preferred
 
     @staticmethod
     def _variant_number(token: str, channel: int, modulus: int) -> int:
