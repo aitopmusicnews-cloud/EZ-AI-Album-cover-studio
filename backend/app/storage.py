@@ -49,11 +49,13 @@ class LocalStorage:
         with Image.open(BytesIO(raw)) as source:
             image = source.convert("RGB")
             image = ImageOps.fit(image, (WORKING_IMAGE_SIZE, WORKING_IMAGE_SIZE), method=Image.Resampling.LANCZOS)
-            if title or artist or parental_advisory:
+            # Release typography stays editable in the browser. Only the legal
+            # advisory label is flattened into the stored background image.
+            if parental_advisory:
                 image = self._apply_release_text(
                     image,
-                    title=title,
-                    artist=artist,
+                    title=None,
+                    artist=None,
                     parental_advisory=parental_advisory,
                     position=position,
                     typography_style=typography_style,

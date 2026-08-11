@@ -1,3 +1,5 @@
+import { openTypographyEditor } from "./typography-editor.js";
+
 const terminalStatuses = new Set([
   "complete", "partial", "analysis_failed", "image_failed", "needs_mood_choice"
 ]);
@@ -484,7 +486,15 @@ function renderGeneration() {
       select.addEventListener("click", () => selectVariation(variation.id));
       const download = element("a", "", "Download");
       download.href = variation.download_url;
-      actions.append(select, download);
+      const editType = element("button", "edit-typography", "Edit typography");
+      editType.type = "button";
+      editType.addEventListener("click", () => openTypographyEditor({
+        variationId: variation.id,
+        imageUrl: variation.image_url,
+        title: generation.title || "Album Title",
+        artist: generation.artist || "Artist Name",
+      }));
+      actions.append(select, editType, download);
       card.append(actions);
       covers.append(card);
     }

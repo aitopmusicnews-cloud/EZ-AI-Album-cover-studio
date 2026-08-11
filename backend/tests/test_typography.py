@@ -1,3 +1,5 @@
+from io import BytesIO
+
 from PIL import Image, ImageFont
 
 from app.font_catalog import all_bundled_font_paths, bundled_font_candidates
@@ -90,3 +92,23 @@ def test_creative_lower_third_treatment_remains_face_safe():
     # Portrait/face region is untouched while the lower third receives lettering.
     assert set(rendered.crop((180, 120, 820, 560)).getdata()) == {(51, 61, 71)}
     assert len(set(rendered.crop((60, 610, 940, 930)).getdata())) > 1
+
+
+def test_saved_cover_keeps_release_text_as_editable_browser_layers(tmp_path):
+    source = Image.new("RGB", (1000, 1000), (51, 61, 71))
+    raw = BytesIO()
+    source.save(raw, format="PNG")
+    storage = LocalStorage(tmp_path)
+
+    relative, _, _ = storage.save_image(
+        "generation",
+        "set",
+        1,
+        raw.getvalue(),
+        title="Move Me",
+        artist="Edit Me",
+        parental_advisory=False,
+    )
+
+    with Image.open(storage.absolute(relative)) as saved:
+        assert set(saved.resize((100, 100)).getdata()) == {(51, 61, 71)}

@@ -19,6 +19,7 @@ from .job_queue import SQSGenerationQueue
 from .lyrics_analysis import LyricsAnalyzer
 from .routers.generations import router
 from .storage import LocalStorage
+from .font_catalog import FONT_ROOT
 
 
 @dataclass(slots=True)
@@ -103,6 +104,7 @@ def create_app(
     )
     app.include_router(router)
     app.mount("/media", StaticFiles(directory=settings.storage_root), name="media")
+    app.mount("/fonts", StaticFiles(directory=FONT_ROOT), name="fonts")
 
     @app.get("/health")
     def health():

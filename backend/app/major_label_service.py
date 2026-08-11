@@ -398,7 +398,8 @@ class MajorLabelGenerationService(GenerationService):
         position: int,
         typography_style: str,
     ) -> bytes:
-        # Apply the locked finish before crisp typography is composited.
+        # Apply the locked finish while keeping title and artist as editable
+        # browser layers. Only the advisory label is permanently composited.
         creative_direction = (generation.analysis_json or {}).get("creative_direction") or {}
         brand_lock = (
             creative_direction.get("brand_lock")
@@ -429,12 +430,12 @@ class MajorLabelGenerationService(GenerationService):
         if brand_finish:
             image = self._apply_brand_finish(image, brand_finish)
 
-        if generation.title or generation.artist or generation.parental_advisory:
+        if generation.parental_advisory:
             layout = self._typography_layout(image, concept.typography_zone, position)
             composed = self.storage._apply_release_text(
                 image,
-                title=generation.title,
-                artist=generation.artist,
+                title=None,
+                artist=None,
                 parental_advisory=bool(generation.parental_advisory),
                 position=layout,
                 typography_style=typography_style,

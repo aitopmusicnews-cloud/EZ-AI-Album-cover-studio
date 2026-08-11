@@ -1,0 +1,55 @@
+@font-face { font-family: "Allura"; src: url("/fonts/allura/Allura-Regular.ttf"); }
+@font-face { font-family: "Armadillo"; src: url("/fonts/armadillo/Armadillo.ttf"); }
+@font-face { font-family: "Baksoap"; src: url("/fonts/baksoap/Baksoap.otf"); }
+@font-face { font-family: "Butflow"; src: url("/fonts/butflow/Butflow.otf"); }
+@font-face { font-family: "Chainsaw Carnage"; src: url("/fonts/chainsaw-carnage/ChainsawCarnage.otf"); }
+@font-face { font-family: "Chopin Script"; src: url("/fonts/chopin-script/ChopinScript.ttf"); }
+@font-face { font-family: "Contour Generator"; src: url("/fonts/contour-generator/Contour%20Generator.otf"); }
+@font-face { font-family: "Corleone"; src: url("/fonts/corleone/Corleone.ttf"); }
+@font-face { font-family: "Corleone Due"; src: url("/fonts/corleone/CorleoneDue.ttf"); }
+@font-face { font-family: "Dystopian Canticle"; src: url("/fonts/dystopian-canticle/Dystopian-Canticle-Regular.otf"); }
+@font-face { font-family: "Ferro Rosso"; src: url("/fonts/ferro-rosso/FerroRosso.ttf"); }
+@font-face { font-family: "Heart Breaking Bad"; src: url("/fonts/heart-breaking-bad/Heart%20Breaking%20Bad.otf"); }
+@font-face { font-family: "Homoarakhn"; src: url("/fonts/homoarakhn/HOMOARAK.TTF"); }
+@font-face { font-family: "If"; src: url("/fonts/if/If.ttf"); }
+@font-face { font-family: "League Gothic"; src: url("/fonts/league-gothic/LeagueGothic-Regular.otf"); }
+@font-face { font-family: "League Gothic Condensed"; src: url("/fonts/league-gothic/LeagueGothic-CondensedRegular.otf"); }
+@font-face { font-family: "Libre Baskerville"; src: url("/fonts/libre-baskerville/LibreBaskerville-Regular.ttf"); }
+@font-face { font-family: "Magnolia Script"; src: url("/fonts/magnolia-script/Magnolia%20Script.otf"); }
+@font-face { font-family: "Marlboro"; src: url("/fonts/marlboro/Marlboro.ttf"); }
+@font-face { font-family: "Miltown"; src: url("/fonts/miltown/Miltown_.ttf"); }
+@font-face { font-family: "Montserrat"; src: url("/fonts/montserrat/Montserrat-Bold.otf"); }
+@font-face { font-family: "Pixemon"; src: url("/fonts/pixemon/Pixemon.otf"); }
+@font-face { font-family: "Poppins"; src: url("/fonts/poppins/Poppins-Bold.ttf"); }
+@font-face { font-family: "Punk Kid"; src: url("/fonts/punk-kid/punk%20kid.ttf"); }
+@font-face { font-family: "Ranch Mails"; src: url("/fonts/ranch-mails/Ranch%20Mails.otf"); }
+@font-face { font-family: "The Battle Continuez"; src: url("/fonts/the-battle-continuez/TheBattleCont.ttf"); }
+@font-face { font-family: "The Rave Is In Your Pants"; src: url("/fonts/the-rave-is-in-your-pants/The%20Rave%20Is%20In%20Your%20Pants.otf"); }
+@font-face { font-family: "Underground"; src: url("/fonts/underground/UndergroundNF.otf"); }
+
+.type-editor-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.86); }
+.type-editor-modal.hidden { display: none; }
+.type-editor-shell { width: min(1180px, 100%); max-height: 96vh; overflow: auto; padding: 18px; border: 1px solid var(--border-strong); border-radius: 18px; background: #151615; box-shadow: 0 30px 90px #000; }
+.type-editor-head, .type-editor-actions, .type-layer-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.type-editor-head h2 { margin: 0; }
+.type-editor-grid { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(280px, 380px); gap: 18px; margin-top: 16px; }
+.type-canvas-wrap { position: relative; align-self: start; border: 1px solid var(--border); background: #080808; touch-action: none; }
+.type-canvas-wrap canvas { display: block; width: 100%; height: auto; cursor: grab; }
+.type-canvas-wrap canvas.dragging { cursor: grabbing; }
+.type-controls { display: grid; gap: 12px; align-content: start; }
+.type-layer-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.type-layer-list button.active { border-color: var(--copper-bright); color: var(--copper-bright); }
+.type-control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.type-controls label { margin: 0; }
+.type-controls input[type="range"] { padding: 0; }
+.type-controls input[type="color"] { min-height: 44px; padding: 4px; }
+.type-checks { display: flex; flex-wrap: wrap; gap: 10px; }
+.type-editor-actions { justify-content: flex-end; margin-top: 16px; }
+.type-editor-actions button, .type-layer-actions button { width: auto; }
+.type-help { margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.45; }
+body.type-editor-open { overflow: hidden; }
+
+@media (max-width: 820px) {
+  .type-editor-grid { grid-template-columns: 1fr; }
+  .type-controls { order: 2; }
+}
