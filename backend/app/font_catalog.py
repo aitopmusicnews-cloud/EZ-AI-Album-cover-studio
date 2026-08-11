@@ -60,6 +60,10 @@ BUNDLED_FONTS: dict[str, tuple[str, ...]] = {
         "contour-generator/Contour Generator.otf",
     ),
     "display": (
+        "sudegnakno4/SudegnakNo4-Red.ttf",
+        "sudegnakno4/SudegnakNo4-Orange.ttf",
+        "sudegnakno4/SudegnakNo4-Blue.ttf",
+        "sudegnakno4/SudegnakNo4-Green.ttf",
         "chunk-five/Chunk.otf",
         "chunk-five/Chunk Five Print.otf",
         "cmu/cmuntt.ttf",

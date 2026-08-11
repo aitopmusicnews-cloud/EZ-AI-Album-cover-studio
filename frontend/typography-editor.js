@@ -13,6 +13,7 @@ const FONT_OPTIONS = [
   "Montserrat Regular", "Montserrat Black", "Montserrat Italic",
   "Poppins Regular", "Poppins Black", "Poppins Italic",
   "Lora Bold", "Lora Italic", "Lora Bold Italic", "CMU Serif Bold", "CMU Sans Bold",
+  "Sudegnak No4 Red", "Sudegnak No4 Orange", "Sudegnak No4 Blue", "Sudegnak No4 Green",
 ];
 
 let editor;

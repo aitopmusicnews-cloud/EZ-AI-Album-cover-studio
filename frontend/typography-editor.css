@@ -51,6 +51,10 @@
 @font-face { font-family: "Lora Bold Italic"; src: url("/fonts/lora/Lora-BoldItalic.ttf"); }
 @font-face { font-family: "CMU Serif Bold"; src: url("/fonts/cmu/cmunbx.ttf"); }
 @font-face { font-family: "CMU Sans Bold"; src: url("/fonts/cmu/cmunsx.ttf"); }
+@font-face { font-family: "Sudegnak No4 Red"; src: url("/fonts/sudegnakno4/SudegnakNo4-Red.ttf"); }
+@font-face { font-family: "Sudegnak No4 Orange"; src: url("/fonts/sudegnakno4/SudegnakNo4-Orange.ttf"); }
+@font-face { font-family: "Sudegnak No4 Blue"; src: url("/fonts/sudegnakno4/SudegnakNo4-Blue.ttf"); }
+@font-face { font-family: "Sudegnak No4 Green"; src: url("/fonts/sudegnakno4/SudegnakNo4-Green.ttf"); }
 
 .type-editor-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.86); }
 .type-editor-modal.hidden { display: none; }
