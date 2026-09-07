@@ -49,6 +49,7 @@ replace_all(
         ('body["providers"]["openai_images"]["configured"] is True', 'body["providers"]["gemini_images"]["configured"] is True'),
         ('body["providers"]["openai_images"]["model"] == "gpt-image-2"', 'body["providers"]["gemini_images"]["model"] == "gemini-3.1-flash-image"'),
         ('all("CREATIVE DIRECTOR CONCEPT" in p for p in images.prompts)', 'all("CONCEPT:" in p for p in images.prompts)'),
+        ('assert any("cut-paper collage" in p for p in images.prompts)\n    assert any("screenprint sleeve" in p for p in images.prompts)', 'concept_names = {p.split("CONCEPT:", 1)[1].split(".", 1)[0].strip() for p in images.prompts}\n    assert len(concept_names) >= 2'),
         ('assert "Concept 1-1" in director.previous_prompts_seen[1][0]', 'assert "Create a commercially credible" in director.previous_prompts_seen[1][0]'),
     ],
 )
