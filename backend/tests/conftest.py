@@ -141,11 +141,11 @@ class FakeCreativeDirector:
         for i in range(count):
             concepts.append({
                 "name": f"Concept {self.calls}-{i+1}",
-                "subject": subjects[i],
-                "setting": settings[i],
+                "subject": subjects[i % len(subjects)],
+                "setting": settings[i % len(settings)],
                 "action_or_symbol": f"song-specific action {self.calls}-{i+1}",
-                "camera": cameras[i],
-                "medium": media[i],
+                "camera": cameras[i % len(cameras)],
+                "medium": media[i % len(media)],
                 "palette": f"distinct palette {self.calls}-{i+1}",
                 "typography_zone": "clear lower-left zone away from faces",
                 "image_prompt": f"Unique cover concept batch {self.calls} variation {i+1}; materially distinct subject, setting, medium and camera.",
@@ -186,13 +186,14 @@ def app_factory(tmp_path):
         image_client: Any | None = None,
         creative_director: Any | None = None,
         retry_attempts: int = 3,
+        gemini_api_key: str | None = None,
     ):
         settings = Settings(
             database_url=f"sqlite:///{tmp_path / ('test-' + str(len(clients)) + '.db')}",
             storage_root=tmp_path / f"storage-{len(clients)}",
             retry_max_attempts=retry_attempts,
             retry_base_delay_seconds=0,
-            openai_api_key="test-key",
+            gemini_api_key=gemini_api_key,
         )
         audio = audio_analyzer or FakeAudioAnalyzer()
         lyrics = lyrics_analyzer or FakeLyricsAnalyzer()

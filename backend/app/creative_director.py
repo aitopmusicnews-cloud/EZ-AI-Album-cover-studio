@@ -21,13 +21,11 @@ class ConceptPlan:
 
 
 class GeminiCreativeDirector:
-    """Uses Gemini only for cover-concept/prompt enhancement.
+    """Uses Gemini for cover-concept and prompt enhancement.
 
-    OpenAI remains the image renderer. Keeping the creative-director provider separate
-    reduces the tendency for one model family to both invent and render the same visual
-    habits. If Gemini is not configured or temporarily unavailable, the service falls
-    back to the local high-cardinality prompt planner; it never falls back to OpenAI for
-    concept enhancement.
+    Creative direction and final image rendering use separate Gemini model calls while
+    sharing the server-side GEMINI_API_KEY. If creative direction is unavailable, the
+    service falls back to the local high-cardinality prompt planner.
     """
 
     endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
@@ -122,7 +120,7 @@ class GeminiCreativeDirector:
 
         system = f"""
 You are an independent creative director for a professional record-label album-cover department.
-Another company's image model will render your concepts. Your job is to invent exactly {count}
+A separate Gemini image model will render your concepts. Your job is to invent exactly {count}
 strong, commercially credible, mutually different cover ideas for ONE song.
 
 Do not behave like a template engine. Start from the song's emotional story, lyrical clues and

@@ -69,18 +69,13 @@ class Settings:
         default_factory=lambda: _env_int("AUDIO_ANALYSIS_MAX_SECONDS", 180)
     )
 
-    openai_api_key: str | None = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
-    openai_image_model: str = field(
-        default_factory=lambda: os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-2")
-    )
-    openai_image_quality: str = field(
-        default_factory=lambda: os.getenv("OPENAI_IMAGE_QUALITY", "medium")
-    )
-    openai_timeout_seconds: float = field(
-        default_factory=lambda: float(os.getenv("OPENAI_TIMEOUT_SECONDS", "150"))
-    )
-
     gemini_api_key: str | None = field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
+    gemini_image_model: str = field(
+        default_factory=lambda: os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
+    )
+    gemini_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("GEMINI_TIMEOUT_SECONDS", "150"))
+    )
     gemini_concept_model: str = field(
         default_factory=lambda: os.getenv("GEMINI_CONCEPT_MODEL", "gemini-3.6-flash")
     )

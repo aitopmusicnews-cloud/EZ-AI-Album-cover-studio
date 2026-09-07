@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 
 from app.errors import (
-    OpenAIAuthenticationError,
-    OpenAIRateLimitError,
-    OpenAIServiceError,
+    GeminiAuthenticationError,
+    GeminiRateLimitError,
+    GeminiServiceError,
 )
 from conftest import (
     FakeAudioAnalyzer,
@@ -132,7 +132,7 @@ def test_invalid_non_mp3_rejected(app_factory):
     assert "MP3" in response.json()["detail"]
 
 
-def test_same_input_returns_cached_variations_without_openai(app_factory, mp3_bytes):
+def test_same_input_returns_cached_variations_without_rerendering(app_factory, mp3_bytes):
     client, _, _, images = app_factory()
     first = create(client, audio=mp3_bytes, lyrics="Rise into light", count=3).json()
     calls_after_first = images.calls
@@ -245,12 +245,12 @@ def test_audio_analysis_is_retried_and_eventually_succeeds(app_factory, mp3_byte
 @pytest.mark.parametrize(
     "error,expected_calls,expected_code",
     [
-        (OpenAIRateLimitError("rate limited", status_code=429), 3, "openai_rate_limit"),
-        (OpenAIServiceError("unavailable", status_code=503), 3, "openai_service_unavailable"),
-        (OpenAIAuthenticationError("bad key", status_code=401), 1, "openai_authentication_error"),
+        (GeminiRateLimitError("rate limited", status_code=429), 3, "gemini_rate_limit"),
+        (GeminiServiceError("unavailable", status_code=503), 3, "gemini_service_unavailable"),
+        (GeminiAuthenticationError("bad key", status_code=401), 1, "gemini_authentication_error"),
     ],
 )
-def test_openai_errors_surface_cleanly(app_factory, error, expected_calls, expected_code):
+def test_gemini_errors_surface_cleanly(app_factory, error, expected_calls, expected_code):
     images = FakeImageClient(failures={index: error for index in range(1, expected_calls + 1)})
     client, _, _, _ = app_factory(image_client=images)
     body = create(client, lyrics="Rise into light", count=3).json()
@@ -262,7 +262,7 @@ def test_openai_errors_surface_cleanly(app_factory, error, expected_calls, expec
 
 def test_partial_failure_can_retry_only_missing_images(app_factory):
     images = FakeImageClient(
-        failures={3: OpenAIServiceError("temporary outage", status_code=503)}
+        failures={3: GeminiServiceError("temporary outage", status_code=503)}
     )
     client, _, _, _ = app_factory(image_client=images, retry_attempts=1)
     first = create(client, lyrics="Rise into light", count=4).json()
@@ -303,9 +303,9 @@ def test_creative_director_makes_each_image_prompt_materially_different(app_fact
     assert body["status"] == "complete"
     assert len(images.prompts) == 5
     assert len(set(images.prompts)) == 5
-    assert all("CREATIVE DIRECTOR CONCEPT" in p for p in images.prompts)
-    assert any("cut-paper collage" in p for p in images.prompts)
-    assert any("screenprint sleeve" in p for p in images.prompts)
+    assert all("CONCEPT:" in p for p in images.prompts)
+    concept_names = {p.split("CONCEPT:", 1)[1].split(".", 1)[0].strip() for p in images.prompts}
+    assert len(concept_names) >= 2
 
 
 def test_fresh_variations_tell_creative_director_about_previous_set(app_factory):
@@ -322,7 +322,7 @@ def test_fresh_variations_tell_creative_director_about_previous_set(app_factory)
     assert director.calls == 2
     assert director.previous_prompts_seen[0] == []
     assert director.previous_prompts_seen[1]
-    assert "Concept 1-1" in director.previous_prompts_seen[1][0]
+    assert "Create a commercially credible" in director.previous_prompts_seen[1][0]
     first_batch = images.prompts[:3]
     second_batch = images.prompts[3:]
     assert set(first_batch).isdisjoint(set(second_batch))
@@ -340,7 +340,7 @@ def test_settings_default_creative_director_is_gemini(monkeypatch, tmp_path):
         database_url=f"sqlite:///{tmp_path / 'gemini-default.db'}",
         storage_root=tmp_path / "gemini-default-storage",
         frontend_root=tmp_path / "missing-frontend",
-        openai_api_key="openai-test-key",
+        gemini_api_key="gemini-test-key",
     )
     app = create_app(
         settings,
@@ -356,9 +356,10 @@ def test_settings_default_creative_director_is_gemini(monkeypatch, tmp_path):
 
 
 def test_health_reports_provider_configuration_without_exposing_keys(app_factory):
-    client, *_ = app_factory()
+    client, *_ = app_factory(gemini_api_key="gemini-test-key")
     body = client.get("/health").json()
     assert body["status"] == "ok"
-    assert body["providers"]["openai_images"]["configured"] is True
-    assert body["providers"]["openai_images"]["model"] == "gpt-image-2"
+    assert body["providers"]["gemini_images"]["configured"] is True
+    assert body["providers"]["gemini_images"]["model"] == "gemini-3.1-flash-image"
+    assert "openai_images" not in body["providers"]
     assert "api_key" not in str(body).lower()
