@@ -1,0 +1,22 @@
+name: Gemini Cover Renderer Verification
+
+on:
+  push:
+    branches:
+      - fix/gemini-image-renderer
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend test dependencies
+        run: python -m pip install -e './backend[test]'
+      - name: Gemini renderer regression
+        run: pytest -q backend/tests/test_gemini_image_renderer.py
