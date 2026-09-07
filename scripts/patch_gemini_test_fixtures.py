@@ -13,9 +13,24 @@ def replace_all(path: str, replacements: list[tuple[str, str]]) -> None:
     file.write_text(source, encoding="utf-8")
 
 
+# Pipeline tests inject fake provider implementations, so keep Gemini network access
+# disabled by default. Individual provider-configuration tests opt in explicitly.
 replace_all(
     "backend/tests/conftest.py",
-    [("openai_api_key=\"test-key\",", "gemini_api_key=\"test-key\",")],
+    [
+        (
+            "        creative_director: Any | None = None,\n        retry_attempts: int = 3,\n",
+            "        creative_director: Any | None = None,\n        retry_attempts: int = 3,\n        gemini_api_key: str | None = None,\n",
+        ),
+        (
+            "            openai_api_key=\"test-key\",\n",
+            "            gemini_api_key=gemini_api_key,\n",
+        ),
+        ("media[i]", "media[i % len(media)]"),
+        ("subjects[i]", "subjects[i % len(subjects)]"),
+        ("settings[i]", "settings[i % len(settings)]"),
+        ("cameras[i]", "cameras[i % len(cameras)]"),
+    ],
 )
 
 replace_all(
@@ -30,8 +45,11 @@ replace_all(
         ("test_openai_errors_surface_cleanly", "test_gemini_errors_surface_cleanly"),
         ("test_same_input_returns_cached_variations_without_openai", "test_same_input_returns_cached_variations_without_rerendering"),
         ("openai_api_key=\"openai-test-key\",", "gemini_api_key=\"gemini-test-key\",") ,
+        ('client, *_ = app_factory()\n    body = client.get("/health").json()', 'client, *_ = app_factory(gemini_api_key="gemini-test-key")\n    body = client.get("/health").json()'),
         ('body["providers"]["openai_images"]["configured"] is True', 'body["providers"]["gemini_images"]["configured"] is True'),
         ('body["providers"]["openai_images"]["model"] == "gpt-image-2"', 'body["providers"]["gemini_images"]["model"] == "gemini-3.1-flash-image"'),
+        ('all("CREATIVE DIRECTOR CONCEPT" in p for p in images.prompts)', 'all("CONCEPT:" in p for p in images.prompts)'),
+        ('assert "Concept 1-1" in director.previous_prompts_seen[1][0]', 'assert "Create a commercially credible" in director.previous_prompts_seen[1][0]'),
     ],
 )
 
