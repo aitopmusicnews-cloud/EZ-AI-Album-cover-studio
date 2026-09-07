@@ -1,6 +1,6 @@
 # EZ AI Album Cover Studio
 
-A complete, self-contained album-cover generation pipeline for a new project. Users can upload an MP3, lyrics, or both; the backend extracts audio and lyric signals, detects mood conflicts, converts those signals into visual art direction, creates 3–5 OpenAI image variations, normalizes every image to exactly **3000×3000 PNG**, and stores a versioned audit trail.
+A complete, self-contained album-cover generation pipeline for a new project. Users can upload an MP3, lyrics, or both; the backend extracts audio and lyric signals, detects mood conflicts, converts those signals into visual art direction, creates 3–5 Gemini image variations, normalizes every image to exactly **3000×3000 PNG**, and stores a versioned audit trail.
 
 The stack is deliberately small and Intel-Mac friendly:
 
@@ -9,7 +9,7 @@ The stack is deliberately small and Intel-Mac friendly:
 - **librosa** for MP3/music analysis
 - Lightweight in-process lyrics NLP with no model download
 - **Gemini** independent creative-director/prompt-enhancement stage
-- **OpenAI Image API** renderer supporting `gpt-image-1`, `gpt-image-2`, and legacy `dall-e-3`
+- **Gemini Image API** renderer using `gemini-3.1-flash-image`
 - Local filesystem image storage behind a replaceable storage class
 - No-build HTML/CSS/JavaScript UI served by FastAPI
 - Pytest integration and unit tests with a mocked image provider
@@ -30,7 +30,7 @@ No modern stack can run on every historical macOS release. This code contains no
 - Anti-repetition prompt guardrails that explicitly avoid cracked-statue / fragmented-face AI clichés unless the song itself calls for them
 - Exact locally composited release typography with five cover-style layouts, plus optional Parental Advisory placement
 - Exact 3000×3000 PNG normalization and immediate local persistence
-- Input-hash cache reuse without rerunning analysis or OpenAI
+- Input-hash cache reuse without rerunning analysis or Gemini image rendering
 - Immutable input versions and append-only fresh variation sets
 - Historical version browsing, variation selection, and downloads
 - Per-step exponential retry logging
@@ -59,7 +59,7 @@ album-cover-studio/
 │   │   ├── signals.py             # equal weighting + conflict detection
 │   │   ├── prompts.py             # signal-to-visual prompt translation
 │   │   ├── creative_director.py   # Gemini prompt enhancement / concept planning
-│   │   ├── image_client.py        # OpenAI Image API adapter
+│   │   ├── image_client.py        # Gemini Image API adapter
 │   │   ├── service.py             # pipeline, cache, retry, versioning
 │   │   ├── models.py              # audit/version schema
 │   │   └── routers/generations.py # API endpoints
@@ -91,7 +91,7 @@ cp .env.example .env
 
 For Intel macOS, the project pins `librosa==0.11.0`, `numba==0.61.2`, and `llvmlite==0.44.0` so pip can use the compatible x86_64 wheels rather than attempting a local LLVM build.
 
-Edit `.env` and set both `OPENAI_API_KEY` and `GEMINI_API_KEY`. OpenAI renders artwork; Gemini independently invents/enhances the cover concepts. Absolute paths are safest for `DATABASE_URL`, `STORAGE_ROOT`, and `FRONTEND_ROOT`; the built-in defaults already resolve to this project’s `data/` and `frontend/` directories when those variables are omitted.
+Edit `.env` and set `GEMINI_API_KEY`. Gemini renders artwork and independently invents/enhances the cover concepts using separate model calls. Absolute paths are safest for `DATABASE_URL`, `STORAGE_ROOT`, and `FRONTEND_ROOT`; the built-in defaults already resolve to this project’s `data/` and `frontend/` directories when those variables are omitted.
 
 For a non-coder-friendly Gemini setup, run:
 
@@ -124,22 +124,20 @@ SQLite is appropriate for a single-process deployment. For multiple API workers,
 
 ## Anti-repetition creative director
 
-Image generation has intentionally separate providers. **Gemini is the prompt enhancer / creative director; OpenAI is only the image renderer.** Before any OpenAI image call, the backend sends the analyzed song signal to Gemini (`GEMINI_CONCEPT_MODEL`, default `gemini-3.6-flash`). Gemini returns 3–5 structured, mutually different cover concepts. Each concept contains a distinct subject, setting, action/symbol, camera language, medium, palette, typography-safe zone, and a complete image prompt.
+Image generation has intentionally separate providers. **Gemini handles both creative direction and image rendering through separate model calls.** Before any Gemini image call, the backend sends the analyzed song signal to Gemini (`GEMINI_CONCEPT_MODEL`, default `gemini-3.6-flash`). Gemini returns 3–5 structured, mutually different cover concepts. Each concept contains a distinct subject, setting, action/symbol, camera language, medium, palette, typography-safe zone, and a complete image prompt.
 
 The planner is specifically told not to behave like a template engine. Genre alone cannot inject cars, trucks, city streets, buildings, mansions, motels, gas stations, cracked statues, chrome masks, or other recurring AI-cover clichés. For 4–5 image sets, it must include at least one no-person concept and at least one non-conventional-photography medium. Recent concept sets are supplied to Gemini when the user requests **Fresh Variations**, so the next set must avoid the prior central subject, environment, composition, medium, dominant prop, and metaphor.
 
-Gemini uses its own `GEMINI_API_KEY`; the OpenAI key is never sent to Google and the Gemini key is never sent to OpenAI. If Gemini is missing or temporarily unavailable, the pipeline logs the provider failure and falls back to the local deterministic diversity planner. It does **not** fall back to OpenAI for prompt enhancement. Set `USE_GEMINI_CREATIVE_DIRECTOR=false` to disable the Gemini stage.
+Gemini uses the server-side `GEMINI_API_KEY` for both stages; the key is never sent to the browser. If Gemini is missing or temporarily unavailable, the pipeline logs the provider failure and falls back to the local deterministic diversity planner. It does **not** fall back to OpenAI for prompt enhancement. Set `USE_GEMINI_CREATIVE_DIRECTOR=false` to disable the Gemini stage.
 
 ## Environment variables
 
 | Variable | Required | Default | Purpose |
 |---|---:|---|---|
-| `OPENAI_API_KEY` | Yes for real images | none | Server-side OpenAI credential; never sent to the browser |
-| `OPENAI_IMAGE_MODEL` | No | `gpt-image-2` | Image API model; `gpt-image-1` and legacy `dall-e-3` are also supported |
-| `OPENAI_IMAGE_QUALITY` | No | `medium` | GPT Image quality; maps to `standard`/`hd` for DALL·E 3 |
-| `OPENAI_TIMEOUT_SECONDS` | No | `150` | Per-request image generation timeout |
-| `GEMINI_API_KEY` | Yes for Gemini prompt enhancement | none | Server-side Google Gemini credential; never sent to OpenAI or the browser |
-| `GEMINI_CONCEPT_MODEL` | No | `gemini-3.6-flash` | Gemini model used only for creative direction / prompt enhancement |
+| `GEMINI_API_KEY` | Yes for real images and Gemini intelligence | none | Server-side Google Gemini credential; never sent to the browser |
+| `GEMINI_IMAGE_MODEL` | No | `gemini-3.1-flash-image` | Gemini model used for final square artwork renders |
+| `GEMINI_TIMEOUT_SECONDS` | No | `150` | Per-request Gemini timeout |
+| `GEMINI_CONCEPT_MODEL` | No | `gemini-3.6-flash` | Gemini model used for creative direction / prompt enhancement |
 | `USE_GEMINI_CREATIVE_DIRECTOR` | No | `true` | Enable the independent Gemini concept-planning stage |
 | `DATABASE_URL` | No | project-local SQLite | SQLAlchemy database URL |
 | `STORAGE_ROOT` | No | `data/storage` | Input and normalized image storage |
@@ -243,7 +241,7 @@ GET  /api/variations/{variation_id}/download
 
 ## Release metadata and exact typography
 
-The browser form accepts an optional album/single **Title**, **Artist**, and **Parental Advisory** checkbox. These values are versioned inputs. The OpenAI prompt reserves calm title and advisory-safe zones but explicitly asks the image model not to draw words. After the 1024×1024 provider image is normalized to a 1000×1000 composition canvas, Pillow composites the exact title/artist text and optional `PARENTAL ADVISORY / EXPLICIT CONTENT` label, then the finished cover is upscaled to 3000×3000 for export. This avoids common generative-image spelling errors.
+The browser form accepts an optional album/single **Title**, **Artist**, and **Parental Advisory** checkbox. These values are versioned inputs. The Gemini image prompt reserves calm title and advisory-safe zones but explicitly asks the image model not to draw words. After the 1024×1024 provider image is normalized to a 1000×1000 composition canvas, Pillow composites the exact title/artist text and optional `PARENTAL ADVISORY / EXPLICIT CONTENT` label, then the finished cover is upscaled to 3000×3000 for export. This avoids common generative-image spelling errors.
 
 The result panel also shows the extracted signal (BPM, key/scale, energy, loudness, genre/style confidence, audio mood, lyric mood, themes, and keywords) so incorrect heuristic classifications are visible instead of hidden.
 

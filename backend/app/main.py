@@ -14,7 +14,7 @@ from .cover_critic import GeminiCoverCritic
 from .creative_director import GeminiCreativeDirector
 from .database import create_database
 from .feedback_generation_service import FeedbackDrivenGenerationService
-from .image_client import OpenAIImageClient
+from .image_client import GeminiImageClient
 from .lyrics_analysis import LyricsAnalyzer
 from .routers.generations import router
 from .storage import LocalStorage
@@ -41,29 +41,28 @@ def create_app(
         settings.audio_analysis_max_seconds
     )
     lyrics_analyzer = dependencies.lyrics_analyzer or LyricsAnalyzer()
-    image_client = dependencies.image_client or OpenAIImageClient(
-        api_key=settings.openai_api_key,
-        model=settings.openai_image_model,
-        quality=settings.openai_image_quality,
-        timeout_seconds=settings.openai_timeout_seconds,
+    image_client = dependencies.image_client or GeminiImageClient(
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_image_model,
+        timeout_seconds=settings.gemini_timeout_seconds,
         allow_mock_images=settings.allow_mock_images,
     )
     creative_director = dependencies.creative_director or GeminiCreativeDirector(
         api_key=settings.gemini_api_key,
         model=settings.gemini_concept_model,
-        timeout_seconds=min(settings.openai_timeout_seconds, 90),
+        timeout_seconds=min(settings.gemini_timeout_seconds, 90),
         enabled=settings.use_gemini_creative_director,
     )
     concept_ranker = dependencies.concept_ranker or GeminiConceptRanker(
         api_key=settings.gemini_api_key,
         model=settings.gemini_concept_model,
-        timeout_seconds=min(settings.openai_timeout_seconds, 90),
+        timeout_seconds=min(settings.gemini_timeout_seconds, 90),
         enabled=settings.enable_concept_ranking,
     )
     cover_critic = dependencies.cover_critic or GeminiCoverCritic(
         api_key=settings.gemini_api_key,
         model=settings.gemini_critic_model,
-        timeout_seconds=min(settings.openai_timeout_seconds, 120),
+        timeout_seconds=min(settings.gemini_timeout_seconds, 120),
         enabled=settings.enable_cover_critic,
     )
     generation_service = FeedbackDrivenGenerationService(
@@ -123,9 +122,9 @@ def create_app(
                     "enabled": settings.enable_cover_critic,
                     "model": settings.gemini_critic_model,
                 },
-                "openai_images": {
-                    "configured": bool(settings.openai_api_key),
-                    "model": settings.openai_image_model,
+                "gemini_images": {
+                    "configured": bool(settings.gemini_api_key),
+                    "model": settings.gemini_image_model,
                 },
             },
         }

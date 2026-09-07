@@ -3,12 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 import base64
 from io import BytesIO
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 from PIL import Image, ImageDraw
 
 from .errors import (
+    GeminiAuthenticationError,
+    GeminiRateLimitError,
+    GeminiRequestError,
+    GeminiServiceError,
     OpenAIAuthenticationError,
     OpenAIRateLimitError,
     OpenAIRequestError,
@@ -21,6 +25,142 @@ from .prompts import variation_prompt
 class GeneratedImage:
     content: bytes
     request_id: str | None = None
+
+
+class ImageClient(Protocol):
+    async def generate(self, prompt: str, position: int) -> GeneratedImage: ...
+    async def generate_exact(self, prompt: str, position: int = 1) -> GeneratedImage: ...
+
+
+class GeminiImageClient:
+    """Gemini Image API adapter used by the production album-cover pipeline."""
+
+    endpoint_root = "https://generativelanguage.googleapis.com/v1/models"
+
+    def __init__(
+        self,
+        *,
+        api_key: str | None,
+        model: str = "gemini-3.1-flash-image",
+        timeout_seconds: float = 150,
+        transport: httpx.AsyncBaseTransport | None = None,
+        allow_mock_images: bool = False,
+    ) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.timeout_seconds = timeout_seconds
+        self.transport = transport
+        self.allow_mock_images = allow_mock_images
+
+    async def generate(self, prompt: str, position: int) -> GeneratedImage:
+        return await self._generate(variation_prompt(prompt, position), position)
+
+    async def generate_exact(self, prompt: str, position: int = 1) -> GeneratedImage:
+        return await self._generate(prompt, position)
+
+    async def _generate(self, final_prompt: str, position: int) -> GeneratedImage:
+        if not self.api_key:
+            if self.allow_mock_images:
+                return GeneratedImage(self._placeholder(position))
+            raise GeminiAuthenticationError(
+                "GEMINI_API_KEY is not configured.", status_code=401
+            )
+
+        payload: dict[str, Any] = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": final_prompt}],
+                }
+            ],
+            "generationConfig": {
+                "responseModalities": ["IMAGE"],
+                "responseFormat": {
+                    "image": {
+                        "aspectRatio": "1:1",
+                        "imageSize": "1K",
+                    }
+                },
+            },
+        }
+        headers = {
+            "x-goog-api-key": self.api_key,
+            "Content-Type": "application/json",
+        }
+        endpoint = f"{self.endpoint_root}/{self.model}:generateContent"
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.timeout_seconds, transport=self.transport
+            ) as client:
+                response = await client.post(endpoint, headers=headers, json=payload)
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise GeminiServiceError(f"Gemini image request failed: {exc}") from exc
+
+        request_id = (
+            response.headers.get("x-goog-request-id")
+            or response.headers.get("x-request-id")
+            or response.headers.get("x-cloud-trace-context")
+        )
+        if response.status_code in {401, 403}:
+            raise GeminiAuthenticationError(
+                self._error_message(response),
+                status_code=response.status_code,
+                request_id=request_id,
+            )
+        if response.status_code == 429:
+            raise GeminiRateLimitError(
+                self._error_message(response), status_code=429, request_id=request_id
+            )
+        if response.status_code >= 500:
+            raise GeminiServiceError(
+                self._error_message(response),
+                status_code=response.status_code,
+                request_id=request_id,
+            )
+        if response.status_code >= 400:
+            raise GeminiRequestError(
+                self._error_message(response),
+                status_code=response.status_code,
+                request_id=request_id,
+            )
+
+        try:
+            body = response.json()
+            for candidate in body.get("candidates", []):
+                content = candidate.get("content") or {}
+                for part in content.get("parts", []):
+                    inline = part.get("inlineData") or part.get("inline_data")
+                    if inline and inline.get("data"):
+                        return GeneratedImage(
+                            base64.b64decode(inline["data"]), request_id=request_id
+                        )
+            raise KeyError("No inline image data was returned")
+        except Exception as exc:
+            if isinstance(exc, GeminiRequestError):
+                raise
+            raise GeminiServiceError(
+                f"Gemini returned an invalid image response: {exc}",
+                request_id=request_id,
+            ) from exc
+
+    @staticmethod
+    def _error_message(response: httpx.Response) -> str:
+        try:
+            payload = response.json()
+            error = payload.get("error", {})
+            return str(error.get("message") or payload)
+        except Exception:
+            return response.text[:500] or f"Gemini HTTP {response.status_code}"
+
+    @staticmethod
+    def _placeholder(position: int) -> bytes:
+        image = Image.new("RGB", (1024, 1024), (28 + position * 12, 34, 54 + position * 20))
+        draw = ImageDraw.Draw(image)
+        draw.ellipse((180, 180, 844, 844), outline=(235, 235, 235), width=18)
+        draw.text((420, 490), f"GEMINI MOCK {position}", fill=(245, 245, 245))
+        output = BytesIO()
+        image.save(output, format="PNG")
+        return output.getvalue()
 
 
 class OpenAIImageClient:

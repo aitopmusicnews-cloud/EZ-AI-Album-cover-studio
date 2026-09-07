@@ -14,7 +14,7 @@ from .audio_analysis import AudioAnalyzer
 from .config import Settings
 from .database import Database
 from .errors import AnalysisError, PipelineError
-from .image_client import OpenAIImageClient
+from .image_client import ImageClient
 from .lyrics_analysis import LyricsAnalyzer
 from .models import AuditEvent, Generation, Variation, VariationSet
 from .prompts import attach_concept_plan, build_image_prompt
@@ -46,7 +46,7 @@ class GenerationService:
         storage: LocalStorage,
         audio_analyzer: AudioAnalyzer,
         lyrics_analyzer: LyricsAnalyzer,
-        image_client: OpenAIImageClient,
+        image_client: ImageClient,
         creative_director: object | None = None,
     ) -> None:
         self.settings = settings
