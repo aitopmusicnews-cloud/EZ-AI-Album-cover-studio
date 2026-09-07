@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+
+def replace_all(path: str, replacements: list[tuple[str, str]]) -> None:
+    file = Path(path)
+    source = file.read_text(encoding="utf-8")
+    for old, new in replacements:
+        if old not in source:
+            raise RuntimeError(f"Patch target not found in {path}: {old!r}")
+        source = source.replace(old, new)
+    file.write_text(source, encoding="utf-8")
+
+
+replace_all(
+    "backend/tests/conftest.py",
+    [("openai_api_key=\"test-key\",", "gemini_api_key=\"test-key\",")],
+)
+
+replace_all(
+    "backend/tests/test_pipeline.py",
+    [
+        ("OpenAIAuthenticationError", "GeminiAuthenticationError"),
+        ("OpenAIRateLimitError", "GeminiRateLimitError"),
+        ("OpenAIServiceError", "GeminiServiceError"),
+        ("openai_rate_limit", "gemini_rate_limit"),
+        ("openai_service_unavailable", "gemini_service_unavailable"),
+        ("openai_authentication_error", "gemini_authentication_error"),
+        ("test_openai_errors_surface_cleanly", "test_gemini_errors_surface_cleanly"),
+        ("test_same_input_returns_cached_variations_without_openai", "test_same_input_returns_cached_variations_without_rerendering"),
+        ("openai_api_key=\"openai-test-key\",", "gemini_api_key=\"gemini-test-key\",") ,
+        ('body["providers"]["openai_images"]["configured"] is True', 'body["providers"]["gemini_images"]["configured"] is True'),
+        ('body["providers"]["openai_images"]["model"] == "gpt-image-2"', 'body["providers"]["gemini_images"]["model"] == "gemini-3.1-flash-image"'),
+    ],
+)
+
+pipeline = Path("backend/tests/test_pipeline.py")
+source = pipeline.read_text(encoding="utf-8")
+needle = '    assert body["providers"]["gemini_images"]["model"] == "gemini-3.1-flash-image"\n'
+if needle not in source:
+    raise RuntimeError("Gemini health assertion not found")
+source = source.replace(
+    needle,
+    needle + '    assert "openai_images" not in body["providers"]\n',
+    1,
+)
+pipeline.write_text(source, encoding="utf-8")
+
+print("Gemini provider test fixtures updated")
