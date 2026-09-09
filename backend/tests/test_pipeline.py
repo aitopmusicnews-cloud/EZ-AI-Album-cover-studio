@@ -359,7 +359,8 @@ def test_health_reports_provider_configuration_without_exposing_keys(app_factory
     client, *_ = app_factory(gemini_api_key="gemini-test-key")
     body = client.get("/health").json()
     assert body["status"] == "ok"
-    assert body["providers"]["gemini_images"]["configured"] is True
-    assert body["providers"]["gemini_images"]["model"] == "gemini-3.1-flash-image"
+    assert body["providers"]["flux_images"]["configured"] is False
+    assert body["providers"]["flux_images"]["model"] == "flux"
+    assert "gemini_images" not in body["providers"]
     assert "openai_images" not in body["providers"]
     assert "api_key" not in str(body).lower()

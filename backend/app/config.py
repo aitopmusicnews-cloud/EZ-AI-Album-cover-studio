@@ -88,6 +88,16 @@ class Settings:
         default_factory=lambda: _env_bool("USE_GEMINI_CREATIVE_DIRECTOR", True)
     )
 
+    pollinations_api_key: str | None = field(
+        default_factory=lambda: os.getenv("POLLINATIONS_API_KEY")
+    )
+    flux_image_model: str = field(
+        default_factory=lambda: os.getenv("FLUX_IMAGE_MODEL", "flux")
+    )
+    flux_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("FLUX_TIMEOUT_SECONDS", "150"))
+    )
+
     concept_count: int = field(default_factory=lambda: _env_int("CONCEPT_COUNT", 8))
     selected_concept_count: int = field(
         default_factory=lambda: _env_int("SELECTED_CONCEPT_COUNT", 2)
