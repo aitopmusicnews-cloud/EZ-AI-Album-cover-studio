@@ -124,6 +124,10 @@ def create_app(
                     "enabled": settings.enable_cover_critic,
                     "model": settings.gemini_critic_model,
                 },
+                "gemini_images": {
+                    "configured": bool(settings.gemini_api_key),
+                    "model": settings.gemini_image_model,
+                },
                 "flux_images": {
                     "configured": bool(
                         settings.cloudflare_account_id and settings.cloudflare_api_token
