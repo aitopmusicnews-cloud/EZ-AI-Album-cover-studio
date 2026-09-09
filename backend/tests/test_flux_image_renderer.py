@@ -5,7 +5,7 @@ import base64
 import httpx
 import pytest
 
-from app.image_client import CloudflareFluxImageClient
+from app.flux_image_client import CloudflareFluxImageClient
 
 
 @pytest.mark.asyncio
@@ -13,7 +13,7 @@ async def test_flux_renderer_calls_workers_ai_and_decodes_image():
     image_bytes = b"fake-jpeg-bytes"
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url == (
+        assert str(request.url) == (
             "https://api.cloudflare.com/client/v4/accounts/account-test/ai/run/"
             "@cf/black-forest-labs/flux-1-schnell"
         )
