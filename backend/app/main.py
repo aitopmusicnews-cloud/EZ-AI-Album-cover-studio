@@ -14,7 +14,7 @@ from .cover_critic import GeminiCoverCritic
 from .creative_director import GeminiCreativeDirector
 from .database import create_database
 from .feedback_generation_service import FeedbackDrivenGenerationService
-from .image_client import FluxImageClient
+from .image_client import CloudflareFluxImageClient
 from .lyrics_analysis import LyricsAnalyzer
 from .routers.generations import router
 from .storage import LocalStorage
@@ -41,10 +41,12 @@ def create_app(
         settings.audio_analysis_max_seconds
     )
     lyrics_analyzer = dependencies.lyrics_analyzer or LyricsAnalyzer()
-    image_client = dependencies.image_client or FluxImageClient(
-        api_key=settings.pollinations_api_key,
-        model=settings.flux_image_model,
-        timeout_seconds=settings.flux_timeout_seconds,
+    image_client = dependencies.image_client or CloudflareFluxImageClient(
+        account_id=settings.cloudflare_account_id,
+        api_token=settings.cloudflare_api_token,
+        model=settings.cloudflare_flux_model,
+        steps=settings.cloudflare_flux_steps,
+        timeout_seconds=settings.cloudflare_timeout_seconds,
         allow_mock_images=settings.allow_mock_images,
     )
     creative_director = dependencies.creative_director or GeminiCreativeDirector(
@@ -122,9 +124,12 @@ def create_app(
                     "enabled": settings.enable_cover_critic,
                     "model": settings.gemini_critic_model,
                 },
-                "flux_images": {
-                    "configured": bool(settings.pollinations_api_key),
-                    "model": settings.flux_image_model,
+                "cloudflare_flux_images": {
+                    "configured": bool(
+                        settings.cloudflare_account_id and settings.cloudflare_api_token
+                    ),
+                    "model": settings.cloudflare_flux_model,
+                    "steps": settings.cloudflare_flux_steps,
                 },
             },
         }
