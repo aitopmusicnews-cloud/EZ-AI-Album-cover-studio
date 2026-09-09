@@ -9,6 +9,10 @@ import httpx
 from PIL import Image, ImageDraw
 
 from .errors import (
+    CloudflareAuthenticationError,
+    CloudflareRateLimitError,
+    CloudflareRequestError,
+    CloudflareServiceError,
     GeminiAuthenticationError,
     GeminiRateLimitError,
     GeminiRequestError,
@@ -33,7 +37,7 @@ class ImageClient(Protocol):
 
 
 class GeminiImageClient:
-    """Gemini Image API adapter used by the production album-cover pipeline."""
+    """Gemini Image API adapter retained for compatibility and direct use."""
 
     endpoint_root = "https://generativelanguage.googleapis.com/v1/models"
 
@@ -288,22 +292,26 @@ class OpenAIImageClient:
         return output.getvalue()
 
 
-class FluxImageClient:
-    """FLUX adapter using Pollinations' OpenAI-compatible image endpoint."""
+class CloudflareFluxImageClient:
+    """FLUX.1 Schnell adapter for Cloudflare Workers AI REST API."""
 
-    endpoint = "https://gen.pollinations.ai/v1/images/generations"
+    endpoint_root = "https://api.cloudflare.com/client/v4/accounts"
 
     def __init__(
         self,
         *,
-        api_key: str | None,
-        model: str = "flux",
+        account_id: str | None,
+        api_token: str | None,
+        model: str = "@cf/black-forest-labs/flux-1-schnell",
+        steps: int = 4,
         timeout_seconds: float = 150,
         transport: httpx.AsyncBaseTransport | None = None,
         allow_mock_images: bool = False,
     ) -> None:
-        self.api_key = api_key
+        self.account_id = account_id
+        self.api_token = api_token
         self.model = model
+        self.steps = steps
         self.timeout_seconds = timeout_seconds
         self.transport = transport
         self.allow_mock_images = allow_mock_images
@@ -315,51 +323,52 @@ class FluxImageClient:
         return await self._generate(prompt, position)
 
     async def _generate(self, final_prompt: str, position: int) -> GeneratedImage:
-        if not self.api_key:
+        if not self.account_id or not self.api_token:
             if self.allow_mock_images:
                 return GeneratedImage(self._placeholder(position))
-            raise OpenAIAuthenticationError(
-                "POLLINATIONS_API_KEY is not configured.", status_code=401
+            raise CloudflareAuthenticationError(
+                "CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be configured.",
+                status_code=401,
             )
 
-        payload: dict[str, Any] = {
-            "model": self.model,
-            "prompt": final_prompt,
-            "n": 1,
-            "size": "1024x1024",
-            "response_format": "b64_json",
+        payload = {
+            "prompt": final_prompt[:2048],
+            "steps": self.steps,
         }
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self.api_token}",
             "Content-Type": "application/json",
         }
+        endpoint = f"{self.endpoint_root}/{self.account_id}/ai/run/{self.model}"
         try:
             async with httpx.AsyncClient(
                 timeout=self.timeout_seconds, transport=self.transport
             ) as client:
-                response = await client.post(self.endpoint, headers=headers, json=payload)
+                response = await client.post(endpoint, headers=headers, json=payload)
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
-            raise OpenAIServiceError(f"FLUX image request failed: {exc}") from exc
+            raise CloudflareServiceError(
+                f"Cloudflare Workers AI image request failed: {exc}"
+            ) from exc
 
-        request_id = response.headers.get("x-request-id")
+        request_id = response.headers.get("cf-ray") or response.headers.get("x-request-id")
         if response.status_code in {401, 403}:
-            raise OpenAIAuthenticationError(
+            raise CloudflareAuthenticationError(
                 self._error_message(response),
                 status_code=response.status_code,
                 request_id=request_id,
             )
         if response.status_code == 429:
-            raise OpenAIRateLimitError(
+            raise CloudflareRateLimitError(
                 self._error_message(response), status_code=429, request_id=request_id
             )
         if response.status_code >= 500:
-            raise OpenAIServiceError(
+            raise CloudflareServiceError(
                 self._error_message(response),
                 status_code=response.status_code,
                 request_id=request_id,
             )
         if response.status_code >= 400:
-            raise OpenAIRequestError(
+            raise CloudflareRequestError(
                 self._error_message(response),
                 status_code=response.status_code,
                 request_id=request_id,
@@ -367,39 +376,50 @@ class FluxImageClient:
 
         try:
             body = response.json()
-            image = body["data"][0]
-            encoded = image.get("b64_json")
-            if encoded:
-                return GeneratedImage(base64.b64decode(encoded), request_id=request_id)
-            url = image.get("url")
-            if url:
-                async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                    downloaded = await client.get(url)
-                    downloaded.raise_for_status()
-                    return GeneratedImage(downloaded.content, request_id=request_id)
-            raise KeyError("Neither b64_json nor url was returned")
+            if body.get("success") is False:
+                raise CloudflareRequestError(
+                    self._error_message(response),
+                    status_code=response.status_code,
+                    request_id=request_id,
+                )
+            result = body.get("result")
+            if isinstance(result, dict):
+                encoded = result.get("image")
+            elif isinstance(result, str):
+                encoded = result
+            else:
+                encoded = body.get("image")
+            if not encoded:
+                raise KeyError("No base64 image was returned")
+            return GeneratedImage(base64.b64decode(encoded), request_id=request_id)
+        except CloudflareRequestError:
+            raise
         except Exception as exc:
-            if isinstance(exc, OpenAIRequestError):
-                raise
-            raise OpenAIServiceError(
-                f"FLUX returned an invalid image response: {exc}", request_id=request_id
+            raise CloudflareServiceError(
+                f"Cloudflare Workers AI returned an invalid image response: {exc}",
+                request_id=request_id,
             ) from exc
 
     @staticmethod
     def _error_message(response: httpx.Response) -> str:
         try:
             payload = response.json()
-            error = payload.get("error", {})
-            return str(error.get("message") or payload)
+            errors = payload.get("errors") or []
+            if errors:
+                first = errors[0]
+                if isinstance(first, dict):
+                    return str(first.get("message") or first)
+                return str(first)
+            return str(payload)
         except Exception:
-            return response.text[:500] or f"FLUX HTTP {response.status_code}"
+            return response.text[:500] or f"Cloudflare HTTP {response.status_code}"
 
     @staticmethod
     def _placeholder(position: int) -> bytes:
         image = Image.new("RGB", (1024, 1024), (28 + position * 12, 34, 54 + position * 20))
         draw = ImageDraw.Draw(image)
         draw.ellipse((180, 180, 844, 844), outline=(235, 235, 235), width=18)
-        draw.text((410, 490), f"FLUX MOCK {position}", fill=(245, 245, 245))
+        draw.text((375, 490), f"CLOUDFLARE FLUX MOCK {position}", fill=(245, 245, 245))
         output = BytesIO()
         image.save(output, format="PNG")
         return output.getvalue()
