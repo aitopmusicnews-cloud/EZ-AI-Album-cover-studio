@@ -88,14 +88,22 @@ class Settings:
         default_factory=lambda: _env_bool("USE_GEMINI_CREATIVE_DIRECTOR", True)
     )
 
-    pollinations_api_key: str | None = field(
-        default_factory=lambda: os.getenv("POLLINATIONS_API_KEY")
+    cloudflare_account_id: str | None = field(
+        default_factory=lambda: os.getenv("CLOUDFLARE_ACCOUNT_ID")
     )
-    flux_image_model: str = field(
-        default_factory=lambda: os.getenv("FLUX_IMAGE_MODEL", "flux")
+    cloudflare_api_token: str | None = field(
+        default_factory=lambda: os.getenv("CLOUDFLARE_API_TOKEN")
     )
-    flux_timeout_seconds: float = field(
-        default_factory=lambda: float(os.getenv("FLUX_TIMEOUT_SECONDS", "150"))
+    cloudflare_flux_model: str = field(
+        default_factory=lambda: os.getenv(
+            "CLOUDFLARE_FLUX_MODEL", "@cf/black-forest-labs/flux-1-schnell"
+        )
+    )
+    cloudflare_flux_steps: int = field(
+        default_factory=lambda: _env_int("CLOUDFLARE_FLUX_STEPS", 4)
+    )
+    cloudflare_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("CLOUDFLARE_TIMEOUT_SECONDS", "150"))
     )
 
     concept_count: int = field(default_factory=lambda: _env_int("CONCEPT_COUNT", 8))
@@ -151,6 +159,8 @@ class Settings:
             raise ValueError("RENDERS_PER_CONCEPT must be at least 1")
         if self.max_parallel_renders < 1:
             raise ValueError("MAX_PARALLEL_RENDERS must be at least 1")
+        if not 1 <= self.cloudflare_flux_steps <= 8:
+            raise ValueError("CLOUDFLARE_FLUX_STEPS must be between 1 and 8")
 
     @property
     def render_count(self) -> int:
