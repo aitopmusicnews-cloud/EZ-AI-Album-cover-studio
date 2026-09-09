@@ -71,3 +71,27 @@ class GeminiServiceError(GeminiError):
 class GeminiRequestError(GeminiError):
     code = "gemini_request_error"
     retryable = False
+
+
+class FluxError(PipelineError):
+    code = "flux_error"
+
+
+class FluxAuthenticationError(FluxError):
+    code = "flux_authentication_error"
+    retryable = False
+
+
+class FluxRateLimitError(FluxError):
+    code = "flux_rate_limit"
+    retryable = True
+
+
+class FluxServiceError(FluxError):
+    code = "flux_service_unavailable"
+    retryable = True
+
+
+class FluxRequestError(FluxError):
+    code = "flux_request_error"
+    retryable = False
