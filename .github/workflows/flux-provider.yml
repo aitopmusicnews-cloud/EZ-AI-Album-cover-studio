@@ -4,7 +4,7 @@ on:
   push:
     branches: [feat/flux-image-provider]
     paths:
-      - "backend/app/image_client.py"
+      - "backend/app/flux_image_client.py"
       - "backend/app/config.py"
       - "backend/app/main.py"
       - "backend/app/errors.py"
@@ -12,7 +12,7 @@ on:
       - ".github/workflows/flux-provider.yml"
   pull_request:
     paths:
-      - "backend/app/image_client.py"
+      - "backend/app/flux_image_client.py"
       - "backend/app/config.py"
       - "backend/app/main.py"
       - "backend/app/errors.py"
@@ -25,7 +25,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,3 +38,7 @@ jobs:
         env:
           PYTHONPATH: backend
         run: pytest -q backend/tests/test_flux_image_renderer.py
+      - name: Run full backend suite
+        env:
+          PYTHONPATH: backend
+        run: pytest -q backend/tests
