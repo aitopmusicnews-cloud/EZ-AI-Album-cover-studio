@@ -71,3 +71,27 @@ class GeminiServiceError(GeminiError):
 class GeminiRequestError(GeminiError):
     code = "gemini_request_error"
     retryable = False
+
+
+class CloudflareError(PipelineError):
+    code = "cloudflare_error"
+
+
+class CloudflareAuthenticationError(CloudflareError):
+    code = "cloudflare_authentication_error"
+    retryable = False
+
+
+class CloudflareRateLimitError(CloudflareError):
+    code = "cloudflare_rate_limit"
+    retryable = True
+
+
+class CloudflareServiceError(CloudflareError):
+    code = "cloudflare_service_unavailable"
+    retryable = True
+
+
+class CloudflareRequestError(CloudflareError):
+    code = "cloudflare_request_error"
+    retryable = False
