@@ -69,6 +69,24 @@ class Settings:
         default_factory=lambda: _env_int("AUDIO_ANALYSIS_MAX_SECONDS", 180)
     )
 
+    cloudflare_account_id: str | None = field(
+        default_factory=lambda: os.getenv("CLOUDFLARE_ACCOUNT_ID")
+    )
+    cloudflare_api_token: str | None = field(
+        default_factory=lambda: os.getenv("CLOUDFLARE_API_TOKEN")
+    )
+    cloudflare_flux_model: str = field(
+        default_factory=lambda: os.getenv(
+            "CLOUDFLARE_FLUX_MODEL", "@cf/black-forest-labs/flux-1-schnell"
+        )
+    )
+    cloudflare_flux_steps: int = field(
+        default_factory=lambda: _env_int("CLOUDFLARE_FLUX_STEPS", 4)
+    )
+    cloudflare_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("CLOUDFLARE_TIMEOUT_SECONDS", "150"))
+    )
+
     gemini_api_key: str | None = field(default_factory=lambda: os.getenv("GEMINI_API_KEY"))
     gemini_image_model: str = field(
         default_factory=lambda: os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
@@ -133,6 +151,8 @@ class Settings:
     )
 
     def __post_init__(self) -> None:
+        if not 1 <= self.cloudflare_flux_steps <= 8:
+            raise ValueError("CLOUDFLARE_FLUX_STEPS must be between 1 and 8")
         if self.concept_count < 4:
             raise ValueError("CONCEPT_COUNT must be at least 4")
         if not 1 <= self.selected_concept_count <= self.concept_count:
