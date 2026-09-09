@@ -100,6 +100,9 @@ def create_app(
 
     @app.get("/health")
     def health():
+        cloudflare_configured = bool(
+            settings.cloudflare_account_id and settings.cloudflare_api_token
+        )
         return {
             "status": "ok",
             "pipeline": {
@@ -125,11 +128,13 @@ def create_app(
                     "model": settings.gemini_critic_model,
                 },
                 "cloudflare_flux_images": {
-                    "configured": bool(
-                        settings.cloudflare_account_id and settings.cloudflare_api_token
-                    ),
+                    "configured": cloudflare_configured,
                     "model": settings.cloudflare_flux_model,
                     "steps": settings.cloudflare_flux_steps,
+                },
+                "flux_images": {
+                    "configured": cloudflare_configured,
+                    "model": "flux",
                 },
             },
         }
